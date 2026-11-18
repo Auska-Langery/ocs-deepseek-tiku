@@ -29,6 +29,8 @@ import {
 	normalizeType,
 	parseOptions,
 	questionKey,
+	pickTextBoxPart,
+	splitSubQuestions,
 	stripQuestionNoise,
 	truncate
 } from './lib/text.mjs';
@@ -40,7 +42,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.2';
+const VERSION = '1.1.3';
 
 const STARTED_AT = Date.now();
 
@@ -164,7 +166,7 @@ function reuseEntry(entry, options, type) {
 	return formatted;
 }
 
-function buildResponse({ title, type, formatted, source, model, cached, ms, mock }) {
+function buildResponse({ title, type, formatted, source, model, cached, ms, mock, focusPart = null, subQuestionCount = 0 }) {
 	return {
 		code: 1,
 		msg: cached ? '命中本地题库' : 'DeepSeek 生成',
@@ -182,15 +184,17 @@ function buildResponse({ title, type, formatted, source, model, cached, ms, mock
 		cached: Boolean(cached),
 		model: model?.model ?? '',
 		mock: Boolean(mock),
+		focusPart,
+		subQuestionCount,
 		ms
 	};
 }
 
-async function computeWithDeepSeek({ title, type, options, rawType, hint, key }) {
+async function computeWithDeepSeek({ title, type, options, rawType, hint, key, focusPart }) {
 	bank.counters.aiCalls++;
 	let result;
 	try {
-		result = await client.ask({ title, type, options, hint });
+		result = await client.ask({ title, type, options, hint, focusPart });
 	} catch (error) {
 		bank.counters.aiFailures++;
 		throw error;
@@ -266,8 +270,13 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	// 免得同一道题被 OCS 用 unknown / completion 两种标记各调一次模型（还会缓存两份）。
 	if (type === 'unknown' && options.length === 0) type = 'completion';
 
+	// 复合题（一道大题下含 (1)(2)(3) 多个小问）：页面上的文字作答框只对应其中一个小问。
+	// OCS 只会往那个框里写一次答案，所以只回答该小问，别把 (1)C (2)A 拼进代码里。
+	const subQuestions = type === 'completion' || type === 'unknown' ? splitSubQuestions(titleText) : [];
+	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
+
 	// 0) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
-	const skipReason = precheckSkip(titleText, type);
+	const skipReason = precheckSkip(focusPart ? focusPart.text : titleText, type);
 	if (skipReason) {
 		return {
 			code: 0,
@@ -282,11 +291,13 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 			source: 'skipped',
 			cached: false,
 			skipped: true,
+			focusPart: focusPart ? focusPart.n : null,
+			subQuestionCount: subQuestions.length,
 			ms: Date.now() - started
 		};
 	}
 
-	const key = questionKey(titleText, type);
+	const key = focusPart ? questionKey(titleText, type) + '#p' + focusPart.n : questionKey(titleText, type);
 
 	bank.counters.lookups++;
 
@@ -305,6 +316,8 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 				source: 'cache',
 				model: { model: exact.model, confidence: exact.confidence, note: exact.note },
 				cached: true,
+				focusPart: focusPart ? focusPart.n : null,
+				subQuestionCount: subQuestions.length,
 				ms: Date.now() - started
 			});
 		}
@@ -344,6 +357,8 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 					source: 'cache',
 					model: { model: entry.model, confidence: entry.confidence, note: entry.note },
 					cached: true,
+					focusPart: focusPart ? focusPart.n : null,
+					subQuestionCount: subQuestions.length,
 					ms: Date.now() - started
 				});
 			}
@@ -355,7 +370,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	const existing = inflight.get(key);
 	const pending =
 		existing ||
-		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key }).finally(() => {
+		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key, focusPart }).finally(() => {
 			inflight.delete(key);
 		});
 	if (!existing) inflight.set(key, pending);
@@ -368,6 +383,8 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		source: 'deepseek',
 		model: { model: result.model, confidence: result.formatted.confidence, note: result.formatted.note },
 		cached: false,
+		focusPart: focusPart ? focusPart.n : null,
+		subQuestionCount: subQuestions.length,
 		ms: Date.now() - started,
 		mock: result.mock
 	});
@@ -525,8 +542,8 @@ async function handle(req, res) {
 			recordCall({
 				ts: new Date().toISOString(),
 				type: result.type,
-				title: truncate(result.question, 80),
-				answer: truncate(result.answer, 120),
+				title: truncate(result.question, 400),
+				answer: truncate(result.answer, 400),
 				source: result.source,
 				ms: Date.now() - started,
 				model: result.model
@@ -536,7 +553,7 @@ async function handle(req, res) {
 			recordCall({
 				ts: new Date().toISOString(),
 				type: normalizeType(type),
-				title: truncate(title, 80),
+				title: truncate(title, 400),
 				answer: '',
 				source: 'error',
 				ms: Date.now() - started,

@@ -716,11 +716,11 @@
 					<div class="field" style="margin-top: 16px">答题策略</div>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-manual" style="width: 16px" />
-						<span>要求「截图 / 画图 / 上传图片」的<b>主观题</b>留空（默认关闭；题干里常混着整题提交说明，容易误伤）</span>
+						<span>要求「截图 / 画图 / 上传图片」的<b>主观题</b>留空（默认开启；只看作答框对应的那一小问，不会误伤同一大题里贴代码的小问）</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-image" style="width: 16px" />
-						<span>带图（“如图 / 下图”）的<b>主观题</b>留空（默认关闭，同上）</span>
+						<span>带图（“如图 / 下图”）的<b>主观题</b>留空（默认关闭；需要看图才能答的题照样给最可能的答案）</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-html" style="width: 16px" />
@@ -791,7 +791,14 @@
 							本题库的接口同时也开了 CORS：万一你的环境里没有 GM 接口，把配置里的 <code>"type"</code> 改回 <code>"fetch"</code> 也能用。
 						</div>
 					</details>
-					<details>
+					    <details>
+      <summary>一道大题里有 (1)(2)(3) 几个小问时，为什么只填了一个空？</summary>
+      <div>
+        <p>超星/学习通会把「大题干 + 若干小问」当成<strong>一道题</strong>发给题库，答题脚本也只会往页面上的那<strong>一个文字作答框</strong>里写一次答案。</p>
+        <p>现在服务端会先把这类复合题按 <code>(1)(2)(3)</code> 拆开，挑出「最适合文字作答的那一问」（贴代码 / 填空 / 简答）单独回答，框里填的就是该小问的答案，不会再出现 <code>（1）C（2）A（3）代码</code> 混在一起的情况。</p>
+        <p>如果出题人把几个小题都做成了选项，脚本本身不会去点这些选项——那部分需要你在页面上手动点选。</p>
+      </div>
+    </details><details>
 						<summary>题库那一行显示 TypeError: Failed to fetch？</summary>
 						<div class="hint" style="margin-top: 6px">
 							只有两种可能：①题库服务没开（双击 <code>启动题库.cmd</code>，黑窗口留着）；②配置里的 <code>"type"</code> 还是 <code>"fetch"</code>，被浏览器拦了

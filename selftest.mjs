@@ -106,7 +106,7 @@ const codeAnswer = formatAnswer({
 	model: { text: '#include <stdio.h>\nint main() {\n  printf("hi");\n  return 0;\n}' }
 });
 check('编程题答案转成 HTML', codeAnswer.mode === 'html', codeAnswer.mode);
-check('代码里的 #include 不再被当分隔符', codeAnswer.answer.includes('&#35;include'), codeAnswer.answer.slice(0, 40));
+check('代码里的 #include 不再被当分隔符', codeAnswer.answer.includes('&num;include'), codeAnswer.answer.slice(0, 40));
 check(
 	'代码里的 <stdio.h> 被转义',
 	codeAnswer.answer.includes('&lt;stdio.h&gt;') && !codeAnswer.answer.includes('<stdio'),
@@ -242,9 +242,33 @@ try {
 	const missing = await postJson('/api/answer', { title: '', options: '', type: 'single' });
 	check('空题干返回错误但 HTTP 仍是 200', missing.status === 200 && missing.data.code === 0, JSON.stringify(missing.data));
 
-	// 默认配置下不该自动跳过任何题（关键词判断太容易误伤）
+	// 默认就跳过「整题只能交截图」的主观题（只跳过这一道，不牵连同大题的其他小问）
 	const defaultSkip = await postJson('/api/answer', { title: '运行程序截图，截图需包含源代码和运行结果。', type: 'completion' });
-	check('默认不自动跳过截图题', defaultSkip.data.skipped !== true, JSON.stringify(defaultSkip.data));
+	check('默认跳过只能交截图的题目', defaultSkip.data.skipped === true && defaultSkip.data.answer === '', JSON.stringify(defaultSkip.data));
+
+	// 复合题：一道大题下 (1) 选择 (2) 判断 (3) 贴代码，只答文字框对应的第 3 小问
+	const composite = await postJson('/api/answer', {
+		title:
+			'(1) 下列哪个是 HTTP 默认端口 A 80 B 443 C 8080 D 21\n' +
+			'(2) TCP 是面向连接的协议。 A 正确 B 错误\n' +
+			'(3) 请把上面的程序复制粘贴到下面，不要截图。 第1空',
+		type: 'completion'
+	});
+	check(
+		'复合题只回答文字框对应的那一小问',
+		composite.data.focusPart === 3 && composite.data.subQuestionCount === 3,
+		JSON.stringify({ focusPart: composite.data.focusPart, n: composite.data.subQuestionCount })
+	);
+	check(
+		'复合题的答案里不混入其他小问',
+		!/（\s*1\s*）|\(\s*1\s*\)/.test(composite.data.answer || '') && !/^\s*A\b/.test(composite.data.answer || ''),
+		String(composite.data.answer).slice(0, 60)
+	);
+	check(
+		'复合题不再被整题跳过',
+		composite.data.skipped !== true && Boolean(composite.data.answer),
+		JSON.stringify({ skipped: composite.data.skipped, msg: composite.data.msg })
+	);
 
 	// 手动打开开关后才跳过
 	await postJson('/api/config', { skipManualWork: true, skipImageQuestions: true });

@@ -16,7 +16,8 @@
 	"token": "",
 	"logRetentionDays": 30,
 	"allowLan": false,
-	"skipManualWork": false,
+	"skipManualWork": true,
 	"skipImageQuestions": false,
-	"htmlAnswer": true
+	"htmlAnswer": true,
+  "codeLanguage": "C"
 }
