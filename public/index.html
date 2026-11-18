@@ -715,11 +715,11 @@
 					<div class="field" style="margin-top: 16px">答题策略</div>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-manual" style="width: 16px" />
-						<span>要求「截图 / 画图 / 上传图片」的<b>主观题</b>留空不答（选择题、判断题不受影响）</span>
+						<span>要求「截图 / 画图 / 上传图片」的<b>主观题</b>留空（默认关闭；题干里常混着整题提交说明，容易误伤）</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-image" style="width: 16px" />
-						<span>带图（“如图 / 下图”）且只能靠图作答的<b>主观题</b>留空不答</span>
+						<span>带图（“如图 / 下图”）的<b>主观题</b>留空（默认关闭，同上）</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-html" style="width: 16px" />
@@ -831,9 +831,9 @@
 					<details>
 						<summary>为什么有些题直接空着不答？</summary>
 						<div class="hint" style="margin-top: 6px">
-							只会跳过<b>主观题</b>（简答 / 填空 / 问答）。选择题、判断题即使题干里提到截图或图片，也照常作答 —— 那种情况多半是整道大题的提交说明，小题本身还是要做的。
-							另外，题目明确说「贴源代码 / 不要截图 / 参考答案是截图」时不会被跳过，会正常给代码。
-							被跳过的题不消耗 token、也不写进题库。
+							默认<b>不会</b>自动跳过任何题：网课题干里经常混着“运行程序截图”这类整题提交说明，靠关键词判断很容易把该做的小题一起留空。
+							现在由模型自己判断——只有「答案必须做成图片、完全没有文字作答途径」时才会留空，选择题、判断题一律作答。
+							如果确实想让某类题直接空着，可以在上面的开关里手动打开。被跳过的题不消耗 token、也不写进题库。
 						</div>
 					</details>
 					<details>
@@ -1231,8 +1231,8 @@
 				$('#cfg-timeout').value = config.timeoutSeconds ?? 35;
 				$('#cfg-fallback').value = (config.fallbackModels || []).join(', ');
 				$('#cfg-token').value = config.token || '';
-				$('#cfg-skip-manual').checked = config.skipManualWork !== false;
-				$('#cfg-skip-image').checked = config.skipImageQuestions !== false;
+				$('#cfg-skip-manual').checked = config.skipManualWork === true;
+				$('#cfg-skip-image').checked = config.skipImageQuestions === true;
 				$('#cfg-html').checked = config.htmlAnswer !== false;
 				$('#cfg-key').value = '';
 				$('#cfg-key').placeholder = config.apiKeyMasked ? '已保存：' + config.apiKeyMasked + '（留空不修改）' : 'sk-…（还没有配置）';

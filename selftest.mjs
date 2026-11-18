@@ -141,7 +141,13 @@ section('2. 起服务（mock 模式）');
 
 const child = spawn(process.execPath, [path.join(ROOT, 'server.mjs'), '--port', String(PORT), '--mock'], {
 	cwd: ROOT,
-	env: { ...process.env, OCS_TIKU_DATA_DIR: DATA_DIR, OCS_TIKU_MOCK: '1', OCS_TIKU_QUIET: '1' },
+	env: {
+		...process.env,
+		OCS_TIKU_DATA_DIR: DATA_DIR,
+		OCS_TIKU_CONFIG: path.join(DATA_DIR, 'config.json'),
+		OCS_TIKU_MOCK: '1',
+		OCS_TIKU_QUIET: '1'
+	},
 	// Windows 沙箱下带管道的 stdio 可能被拒绝（spawn EPERM），所以直接继承控制台输出
 	stdio: ['ignore', 'inherit', 'inherit'],
 	windowsHide: true
@@ -235,6 +241,13 @@ try {
 
 	const missing = await postJson('/api/answer', { title: '', options: '', type: 'single' });
 	check('空题干返回错误但 HTTP 仍是 200', missing.status === 200 && missing.data.code === 0, JSON.stringify(missing.data));
+
+	// 默认配置下不该自动跳过任何题（关键词判断太容易误伤）
+	const defaultSkip = await postJson('/api/answer', { title: '运行程序截图，截图需包含源代码和运行结果。', type: 'completion' });
+	check('默认不自动跳过截图题', defaultSkip.data.skipped !== true, JSON.stringify(defaultSkip.data));
+
+	// 手动打开开关后才跳过
+	await postJson('/api/config', { skipManualWork: true, skipImageQuestions: true });
 
 	const bankBeforeSkip = (await fetch(`${BASE}/api/stats`).then((response) => response.json())).entries ?? 0;
 	const manualSkip = await postJson('/api/answer', {

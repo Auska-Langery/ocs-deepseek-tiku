@@ -40,12 +40,16 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 
 const STARTED_AT = Date.now();
 
 let config = loadConfig(ROOT);
 const bank = new Bank(DATA_DIR).init();
+if (config.htmlAnswer !== false) {
+	const dropped = bank.pruneLegacyTextAnswers();
+	if (dropped) console.log(`🧹 已清理 ${dropped} 条没有换行的旧简答缓存，下次遇到会重新生成`);
+}
 const client = new DeepSeekClient(() => config);
 
 /** 同一道题并发查询时只调一次 DeepSeek */
@@ -237,10 +241,10 @@ async function computeWithDeepSeek({ title, type, options, rawType, hint, key })
 function precheckSkip(titleText, type) {
 	const subjective = type === 'completion' || type === 'unknown';
 	if (!subjective) return '';
-	if (config.skipManualWork !== false && needsManualWork(titleText)) {
+	if (config.skipManualWork === true && needsManualWork(titleText)) {
 		return '该题要求交截图/图片，文字交不了，已按要求留空';
 	}
-	if (config.skipImageQuestions !== false && looksLikeImageQuestion(titleText)) {
+	if (config.skipImageQuestions === true && looksLikeImageQuestion(titleText)) {
 		return '该题含图片且没有文字作答条件，模型看不到图，已跳过（可在管理台设置里关闭）';
 	}
 	return '';
@@ -255,7 +259,12 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	if (!titleText) throw new HttpError(400, '缺少题目内容（title 为空）');
 	if (titleText.length > 4000) throw new HttpError(400, '题目过长（超过 4000 字）');
 
-	const type = normalizeType(rawType);
+	let type = normalizeType(rawType);
+	const options = parseOptions(rawOptions);
+
+	// 没有选项又没题型标记的，基本就是填空/简答：先归到 completion，
+	// 免得同一道题被 OCS 用 unknown / completion 两种标记各调一次模型（还会缓存两份）。
+	if (type === 'unknown' && options.length === 0) type = 'completion';
 
 	// 0) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
 	const skipReason = precheckSkip(titleText, type);
@@ -277,7 +286,6 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		};
 	}
 
-	const options = parseOptions(rawOptions);
 	const key = questionKey(titleText, type);
 
 	bank.counters.lookups++;
@@ -699,6 +707,9 @@ async function handle(req, res) {
 		if (body.maxTokens !== undefined) patch.maxTokens = body.maxTokens;
 		if (body.timeoutSeconds !== undefined) patch.timeoutSeconds = body.timeoutSeconds;
 		if (body.concurrency !== undefined) patch.concurrency = body.concurrency;
+		if (body.skipManualWork !== undefined) patch.skipManualWork = body.skipManualWork === true;
+		if (body.skipImageQuestions !== undefined) patch.skipImageQuestions = body.skipImageQuestions === true;
+		if (body.htmlAnswer !== undefined) patch.htmlAnswer = body.htmlAnswer !== false;
 		if (body.fallbackModels !== undefined) {
 			patch.fallbackModels = Array.isArray(body.fallbackModels)
 				? body.fallbackModels
