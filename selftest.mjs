@@ -281,6 +281,32 @@ try {
 		JSON.stringify({ skipped: composite.data.skipped, msg: composite.data.msg })
 	);
 
+	// 混排单选 + 填空：OCS 的 completion 分支要求「答案段数 = 页面元素数」（8 个选项 + 1 个空 = 9），
+	// 否则一个框都不填。这里把答案拼成 9 段 JSON 数组，最后一段才是文字答案。
+	const mixed = await postJson('/api/answer', {
+		title:
+			'(1) 定义字符数组，存储一个长度不多于10的字符串，则数组长度至少是 A 12 B 9 C 11 D 10\n' +
+			'(2) 字符串结束标记是什么字符 A "0" B "0" C "\\0" D "\\n"\n' +
+			'(3) 粘贴源代码，不要截图。参考答案是截图。 第1空',
+		type: 'completion'
+	});
+	let mixedPieces = [];
+	try {
+		mixedPieces = JSON.parse(mixed.data.answer || '[]');
+	} catch {
+		mixedPieces = [];
+	}
+	check(
+		'混排单选 + 填空：答案拼成 9 段（选项占位 + 文字答案）',
+		Array.isArray(mixedPieces) && mixedPieces.length === 9 && Boolean(mixedPieces[8]),
+		`pieces=${mixedPieces.length}`
+	);
+	check(
+		'混排题最后一段是纯文本代码（不带 HTML 实体）',
+		typeof mixedPieces[8] === 'string' && !mixedPieces[8].includes('&num;') && !mixedPieces[8].includes('<br>'),
+		String(mixedPieces[8]).slice(0, 40)
+	);
+
 	// 手动打开开关后才跳过
 	await postJson('/api/config', { skipManualWork: true, skipImageQuestions: true });
 

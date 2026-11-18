@@ -22,6 +22,7 @@ import { Bank } from './lib/bank.mjs';
 import { loadConfig, maskKey, publicConfig, updateConfig } from './lib/config.mjs';
 import { DeepSeekClient } from './lib/deepseek.mjs';
 import {
+	countOptionLetters,
 	looksLikeImageQuestion,
 	matchOption,
 	needsManualWork,
@@ -42,7 +43,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.5';
+const VERSION = '1.1.6';
 
 const STARTED_AT = Date.now();
 
@@ -152,8 +153,21 @@ function modelFromEntry(entry, options) {
 	};
 }
 
+/**
+ * 复合题（混排单选 + 填空）在 OCS 侧只走 completion 分支，而它要求
+ * 「答案段数 === 页面元素数」才会填任何东西。这里把答案拼成 JSON 数组：
+ * 前 N 段是选项占位（completion 分支对选项元素不做任何事），最后一段才是文字答案。
+ */
+function wrapCompositeAnswer(slots, text) {
+	if (!slots || slots < 2 || !text) return text;
+	const pieces = [];
+	for (let i = 0; i < slots - 1; i++) pieces.push('（略）');
+	pieces.push(text);
+	return JSON.stringify(pieces);
+}
+
 /** 尝试用历史记录直接回答当前题目 */
-function reuseEntry(entry, options, type) {
+function reuseEntry(entry, options, type, compositeSlots = 0) {
 	if (!entry) return null;
 	if ((entry.options?.length || 0) !== options.length && options.length) {
 		// 选项数量变了：只有在旧答案是“文本类”（而非依赖选项顺序）时才允许复用
@@ -161,8 +175,9 @@ function reuseEntry(entry, options, type) {
 	}
 	const model = modelFromEntry(entry, options);
 	if (!model) return null;
-	const formatted = formatAnswer({ type, options, model, html: config.htmlAnswer !== false });
+	const formatted = formatAnswer({ type, options, model, html: config.htmlAnswer !== false && !compositeSlots });
 	if (!formatted.answer) return null;
+	formatted.answer = wrapCompositeAnswer(compositeSlots, formatted.answer);
 	return formatted;
 }
 
@@ -205,7 +220,7 @@ function sanitizeTitle(input) {
 	text = text.replace(/[\t\u00a0\u3000]+/g, ' ').replace(/ {2,}/g, ' ');
 	return text.replace(/\n{3,}/g, '\n\n').trim();
 }
-async function computeWithDeepSeek({ title, type, options, rawType, hint, key, focusPart }) {
+async function computeWithDeepSeek({ title, type, options, rawType, hint, key, focusPart, compositeSlots = 0 }) {
 	bank.counters.aiCalls++;
 	let result;
 	try {
@@ -216,7 +231,8 @@ async function computeWithDeepSeek({ title, type, options, rawType, hint, key, f
 	}
 
 	const model = parseModelOutput(result.content);
-	const formatted = formatAnswer({ type, options, model, html: config.htmlAnswer !== false });
+	const formatted = formatAnswer({ type, options, model, html: config.htmlAnswer !== false && !compositeSlots });
+	formatted.answer = wrapCompositeAnswer(compositeSlots, formatted.answer);
 
 	if (!formatted.answer) {
 		if (formatted.kind === 'skip' || formatted.mode === 'skip') {
@@ -295,6 +311,9 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	const subQuestions =
 		options.length === 0 && (type === 'completion' || type === 'unknown') ? splitSubQuestions(titleText) : [];
 	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
+	// 复合题里还嵌着单选时，OCS 的 completion 分支要求答案段数 = 页面元素数（选项数 + 填空数），
+	// 段数不匹配就一个框都不填 —— 所以按题干里的选项字母数推算，拼成 JSON 数组。
+	const compositeSlots = focusPart ? countOptionLetters(subQuestions) + 1 : 0;
 
 
 	const key = focusPart ? questionKey(titleText, type) + '#p' + focusPart.n : questionKey(titleText, type);
@@ -304,7 +323,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	// 1) 完全命中
 	const exact = bank.get(key);
 	if (exact) {
-		const formatted = reuseEntry(exact, options, type);
+		const formatted = reuseEntry(exact, options, type, compositeSlots);
 		if (formatted) {
 			bank.counters.hits++;
 			bank.touch(exact, formatted.answer, { picked: formatted.picked, letters: formatted.letters });
@@ -328,7 +347,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		const candidates = bank.candidates(normalizeText(stripQuestionNoise(titleText)), type);
 		for (const entry of candidates) {
 			if (entry === exact) continue;
-			const formatted = reuseEntry(entry, options, type);
+			const formatted = reuseEntry(entry, options, type, compositeSlots);
 			if (formatted) {
 				bank.counters.hits++;
 				bank.upsert({
@@ -391,7 +410,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	const existing = inflight.get(key);
 	const pending =
 		existing ||
-		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key, focusPart }).finally(() => {
+		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key, focusPart, compositeSlots }).finally(() => {
 			inflight.delete(key);
 		});
 	if (!existing) inflight.set(key, pending);
