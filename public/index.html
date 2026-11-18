@@ -725,6 +725,17 @@
 						<input type="checkbox" id="cfg-html" style="width: 16px" />
 						<span>简答 / 编程题答案转成 HTML 提交（保留换行，避免 <code>&lt;stdio.h&gt;</code> 被页面吃掉）</span>
 					</label>
+					<div class="field" style="margin-top: 12px">
+						<label for="cfg-lang">编程题默认语言（题目没写明时用）</label>
+						<select id="cfg-lang" style="max-width: 220px">
+							<option value="C">C</option>
+							<option value="C++">C++</option>
+							<option value="Java">Java</option>
+							<option value="Python">Python</option>
+							<option value="auto">不确定 / 交给模型判断</option>
+						</select>
+						<div class="hint" style="margin-top: 4px">网课题干经常不写语言，不指定的话模型容易答成 C++、Python。C 语言课建议保持 C。</div>
+					</div>
 					<div class="row" style="margin-top: 14px">
 						<button class="btn primary" id="cfg-save">保存设置</button>
 						<button class="btn" id="cfg-test">测试连接</button>
@@ -1234,6 +1245,7 @@
 				$('#cfg-skip-manual').checked = config.skipManualWork === true;
 				$('#cfg-skip-image').checked = config.skipImageQuestions === true;
 				$('#cfg-html').checked = config.htmlAnswer !== false;
+				$('#cfg-lang').value = config.codeLanguage || 'C';
 				$('#cfg-key').value = '';
 				$('#cfg-key').placeholder = config.apiKeyMasked ? '已保存：' + config.apiKeyMasked + '（留空不修改）' : 'sk-…（还没有配置）';
 				$('#cfg-key-state').textContent = config.apiKeyMasked ? '当前 Key：' + config.apiKeyMasked : '尚未配置 Key，无法调用 DeepSeek。';
@@ -1288,6 +1300,7 @@
 					skipManualWork: $('#cfg-skip-manual').checked,
 					skipImageQuestions: $('#cfg-skip-image').checked,
 					htmlAnswer: $('#cfg-html').checked,
+					codeLanguage: $('#cfg-lang').value,
 					fallbackModels: $('#cfg-fallback')
 						.value.split(/[,，\s]+/)
 						.map((item) => item.trim())

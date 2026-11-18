@@ -710,6 +710,7 @@ async function handle(req, res) {
 		if (body.skipManualWork !== undefined) patch.skipManualWork = body.skipManualWork === true;
 		if (body.skipImageQuestions !== undefined) patch.skipImageQuestions = body.skipImageQuestions === true;
 		if (body.htmlAnswer !== undefined) patch.htmlAnswer = body.htmlAnswer !== false;
+		if (body.codeLanguage !== undefined) patch.codeLanguage = String(body.codeLanguage);
 		if (body.fallbackModels !== undefined) {
 			patch.fallbackModels = Array.isArray(body.fallbackModels)
 				? body.fallbackModels
