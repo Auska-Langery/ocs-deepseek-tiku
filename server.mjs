@@ -217,12 +217,44 @@ function reuseEntry(entry, options, type, compositeSlots = 0) {
 	return formatted;
 }
 
+/**
+ * 复合题的答案会按「(1) C / (2) A / (3) 代码」的顺序排下来，而页面上的文字框只需要最后那一问。
+ * 这里按 <br> 找最后一个「(n)」标记行，取它后面的内容作为要写进框里的文字。
+ * 判断是标记行而不是代码里的括号：去掉标记后剩下的内容很短（≤ 24 字），`for (i = 1; …)` 这类不会命中。
+ */
+function extractLastPart(html) {
+	const lines = String(html ?? '').split(/<br\s*\/?>/i);
+	let index = -1;
+	let inline = '';
+	for (let i = 0; i < lines.length; i++) {
+		const plain = lines[i].replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').trim();
+		const marker = plain.match(/^[（(]\s*(\d{1,2})\s*[)）]/);
+		if (!marker) continue;
+		const rest = plain.slice(marker[0].length).trim();
+		if (rest.length <= 24) {
+			index = i;
+			inline = rest;
+		}
+	}
+	if (index < 0) return '';
+	const tail = lines
+		.slice(index + 1)
+		.join('<br>')
+		.replace(/^(<br>)+/i, '')
+		.trim();
+	// 标记行后面还有内容（代码/说明）就用后面的；否则用标记行自己的那句（例如「(4) 上面说法都不对」）
+	return tail || inline;
+}
+
 function buildResponse({ title, type, formatted, source, model, cached, ms, mock, focusPart = null, subQuestionCount = 0, slots = 0 }) {
+	// box：真正要写进文本框的那部分（复合题只取最后一问，前面几问的字母留着让用户自己点选项）
+	const box = subQuestionCount >= 2 ? extractLastPart(formatted.answer) || formatted.answer : formatted.answer;
 	return {
 		code: 1,
 		msg: cached ? '命中本地题库' : 'DeepSeek 生成',
 		question: title,
 		answer: formatted.answer,
+		box,
 		type,
 		typeLabel: typeLabel(type),
 		letters: formatted.letters,
