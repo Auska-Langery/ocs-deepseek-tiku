@@ -253,11 +253,15 @@ try {
 	const missing = await postJson('/api/answer', { title: '', options: '', type: 'single' });
 	check('空题干返回错误但 HTTP 仍是 200', missing.status === 200 && missing.data.code === 0, JSON.stringify(missing.data));
 
-	// 默认就跳过「整题只能交截图」的主观题（只跳过这一道，不牵连同大题的其他小问）
+	// 默认不跳过任何题：跳过开关默认关闭（题干里常混着整题提交说明，关键词判断容易误伤）
 	const defaultSkip = await postJson('/api/answer', { title: '请把实验报告手写拍照上传。', type: 'completion' });
-	check('默认跳过只能交截图的题目', defaultSkip.data.skipped === true && defaultSkip.data.answer === '', JSON.stringify(defaultSkip.data));
+	check(
+		'默认不跳过任何题（跳过开关默认关闭）',
+		defaultSkip.data.skipped !== true && Boolean(defaultSkip.data.answer),
+		JSON.stringify({ skipped: defaultSkip.data.skipped, answer: defaultSkip.data.answer })
+	);
 
-	// 复合题：一道大题下 (1) 选择 (2) 判断 (3) 贴代码，只答文字框对应的第 3 小问
+	// 复合题：一道大题下 (1) 选择 (2) 判断 (3) 贴代码 —— 顺着题目顺序把小问全部答出来
 	const composite = await postJson('/api/answer', {
 		title:
 			'(1) 下列哪个是 HTTP 默认端口 A 80 B 443 C 8080 D 21\n' +
@@ -266,13 +270,13 @@ try {
 		type: 'completion'
 	});
 	check(
-		'复合题只回答文字框对应的那一小问',
-		composite.data.focusPart === 3 && composite.data.subQuestionCount === 3,
+		'复合题被识别为多小问',
+		composite.data.subQuestionCount === 3 && composite.data.focusPart === null,
 		JSON.stringify({ focusPart: composite.data.focusPart, n: composite.data.subQuestionCount })
 	);
 	check(
-		'复合题的答案里不混入其他小问',
-		!/（\s*1\s*）|\(\s*1\s*\)/.test(composite.data.answer || '') && !/^\s*A\b/.test(composite.data.answer || ''),
+		'复合题答案不再是 JSON 数组（直接写入模式用不到段数）',
+		typeof composite.data.answer === 'string' && !composite.data.answer.trim().startsWith('['),
 		String(composite.data.answer).slice(0, 60)
 	);
 	check(
@@ -281,8 +285,7 @@ try {
 		JSON.stringify({ skipped: composite.data.skipped, msg: composite.data.msg })
 	);
 
-	// 混排单选 + 填空：OCS 的 completion 分支要求「答案段数 = 页面元素数」（8 个选项 + 1 个空 = 9），
-	// 否则一个框都不填。这里把答案拼成 9 段 JSON 数组，最后一段才是文字答案。
+	// 混排单选 + 填空：答案直接给纯文本，由页面里的 handler 自己决定写到哪里
 	const mixed = await postJson('/api/answer', {
 		title:
 			'(1) 定义字符数组，存储一个长度不多于10的字符串，则数组长度至少是 A 12 B 9 C 11 D 10\n' +
@@ -290,22 +293,10 @@ try {
 			'(3) 粘贴源代码，不要截图。参考答案是截图。 第1空',
 		type: 'completion'
 	});
-	let mixedPieces = [];
-	try {
-		mixedPieces = JSON.parse(mixed.data.answer || '[]');
-	} catch {
-		mixedPieces = [];
-	}
-	const lastPiece = mixedPieces[mixedPieces.length - 1];
 	check(
-		'混排单选 + 填空：答案按候选段数拼成数组（选项占位 + 文字答案）',
-		Array.isArray(mixedPieces) && mixedPieces.length >= 8 && Boolean(lastPiece),
-		`pieces=${mixedPieces.length}`
-	);
-	check(
-		'混排题最后一段是纯文本代码（不带 HTML 实体）',
-		typeof lastPiece === 'string' && !lastPiece.includes('&num;') && !lastPiece.includes('<br>'),
-		String(lastPiece).slice(0, 40)
+		'混排大题返回纯文本答案（不再拼 JSON 数组）',
+		typeof mixed.data.answer === 'string' && mixed.data.answer.length > 0 && !mixed.data.answer.trim().startsWith('['),
+		String(mixed.data.answer).slice(0, 60)
 	);
 
 	// 手动打开开关后才跳过
@@ -313,7 +304,7 @@ try {
 
 	const bankBeforeSkip = (await fetch(`${BASE}/api/stats`).then((response) => response.json())).entries ?? 0;
 	const manualSkip = await postJson('/api/answer', {
-		title: '请把实验报告手写拍照上传。',
+		title: '请把实验报告手写拍照上传，并在末尾注明实验结论。',
 		type: 'completion'
 	});
 	check(

@@ -43,7 +43,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.7';
+const VERSION = '1.1.8';
 
 const STARTED_AT = Date.now();
 
@@ -154,26 +154,22 @@ function modelFromEntry(entry, options) {
 }
 
 /**
- * 复合题答案段数的候选值。服务端看不到页面 DOM，只能按「一个选项算几个元素」轮换尝试：
- *   选项数×2+1（字母和文字各占一个元素，最常见）→ 选项数+1（一个选项一个元素）
- *   → 选项数+2（填空框同时命中 .textDIV 和 .eidtDiv）→ 选项数×2+2
+ * 复合题答案段数的候选值。服务端看不到页面 DOM，只能轮换尝试：
+ * 先用固定的常见值（9 = 4+4 个选项 + 1 个空，17 = 每个选项占两个元素，10 / 18 是空框同时
+ * 命中 .textDIV 和 .eidtDiv 的情况），再退到按题干里数出来的选项字母数推算。
  * 同一道题每被问一次就换下一个；段数不匹配时 OCS 的 resolveCompletion 直接返回 false，
  * 什么都不会做，所以多试几次没有副作用。
  */
 const compositeSlotAttempts = new Map();
 
 function nextCompositeSlots(key, optionLetters) {
-	const candidates = [
-		optionLetters * 2 + 1,
-		optionLetters + 1,
-		optionLetters + 2,
-		optionLetters * 2 + 2
-	];
-	// 「选项数 + 1」已实测不成立（9 段时用户页面上一个字都没填），所以把它排到第二顺位。
+	const ladder = [9, 17, 10, 18, optionLetters + 1, optionLetters * 2 + 1].filter(
+		(value, index, array) => value >= 2 && array.indexOf(value) === index
+	);
 	const attempt = compositeSlotAttempts.get(key) || 0;
-	compositeSlotAttempts.set(key, (attempt + 1) % candidates.length);
+	compositeSlotAttempts.set(key, (attempt + 1) % ladder.length);
 	if (compositeSlotAttempts.size > 5000) compositeSlotAttempts.clear();
-	return candidates[attempt % candidates.length];
+	return ladder[attempt % ladder.length];
 }
 
 /**
@@ -261,11 +257,11 @@ function sanitizeTitle(input) {
 	text = text.replace(/[\t\u00a0\u3000]+/g, ' ').replace(/ {2,}/g, ' ');
 	return text.replace(/\n{3,}/g, '\n\n').trim();
 }
-async function computeWithDeepSeek({ title, type, options, rawType, hint, key, focusPart, compositeSlots = 0 }) {
+async function computeWithDeepSeek({ title, type, options, rawType, hint, key, wholeQuestion = false, compositeSlots = 0 }) {
 	bank.counters.aiCalls++;
 	let result;
 	try {
-		result = await client.ask({ title, type, options, hint, focusPart });
+		result = await client.ask({ title, type, options, hint, wholeQuestion });
 	} catch (error) {
 		bank.counters.aiFailures++;
 		throw error;
@@ -344,22 +340,18 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	// 免得同一道题被 OCS 用 unknown / completion 两种标记各调一次模型（还会缓存两份）。
 	if (type === 'unknown' && options.length === 0) type = 'completion';
 
-	// 复合题（一道大题下含 (1)(2)(3) 多个小问）：页面上的文字作答框只对应其中一个小问。
-	// OCS 只会往那个框里写一次答案，所以只回答该小问，别把 (1)C (2)A 拼进代码里。
-	// 注意：只有「没有选项」的主观题才拆小问。带选项的题必须按选项作答，
+	// 复合题（一道大题下含 (1)(2)(3) 多个小问）：OCS 把整道题当一道题送过来，
+	// 且只用 completion 的方式往那个文字框里写一次。这里不再拆小问、也不再拼段数，
+	// 直接让模型按题目顺序把小问逐个答出来（见 buildMessages 的 wholeQuestion）。
+	// 注意：只有「没有选项」的主观题才算复合题。带选项的题必须按选项作答，
 	// 否则 OCS 会把这段文字拼进 span.saveSingleSelect[data="…"] 选择器，直接抛
 	// Failed to execute 'querySelector' on 'Element'。
 	const subQuestions =
 		options.length === 0 && (type === 'completion' || type === 'unknown') ? splitSubQuestions(titleText) : [];
-	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
-	const optionLetters = focusPart ? countOptionLetters(subQuestions) : 0;
+	const wholeQuestion = subQuestions.length >= 2;
+	const compositeSlots = 0;
 
-	const key = focusPart ? questionKey(titleText, type) + '#p' + focusPart.n : questionKey(titleText, type);
-
-	// 复合题里还嵌着单选时，OCS 的 completion 分支要求「答案段数 === 页面元素数」，段数不对一个框都不填。
-	// 但页面元素数（一个选项算 1 个还是 2 个元素）在服务端看不到，于是按候选值轮换：
-	// 同一道题每被问一次就换下一个候选，总有一次能对上（对不上时 OCS 什么也不做，不会有副作用）。
-	const compositeSlots = optionLetters >= 2 ? nextCompositeSlots(key, optionLetters) : 0;
+	const key = questionKey(titleText, type);
 
 	bank.counters.lookups++;
 
@@ -378,7 +370,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 				source: 'cache',
 				model: { model: exact.model, confidence: exact.confidence, note: exact.note },
 				cached: true,
-				focusPart: focusPart ? focusPart.n : null,
+				focusPart: null,
 			slots: compositeSlots,
 				subQuestionCount: subQuestions.length,
 				ms: Date.now() - started
@@ -420,7 +412,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 					source: 'cache',
 					model: { model: entry.model, confidence: entry.confidence, note: entry.note },
 					cached: true,
-					focusPart: focusPart ? focusPart.n : null,
+					focusPart: null,
 			slots: compositeSlots,
 					subQuestionCount: subQuestions.length,
 					ms: Date.now() - started
@@ -430,7 +422,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	}
 
 	// 3) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
-	const skipReason = precheckSkip(focusPart ? focusPart.text : titleText, type);
+	const skipReason = precheckSkip(titleText, type);
 	if (skipReason) {
 		return {
 			code: 0,
@@ -445,7 +437,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 			source: 'skipped',
 			cached: false,
 			skipped: true,
-			focusPart: focusPart ? focusPart.n : null,
+			focusPart: null,
 			slots: compositeSlots,
 			subQuestionCount: subQuestions.length,
 			ms: Date.now() - started
@@ -456,7 +448,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	const existing = inflight.get(key);
 	const pending =
 		existing ||
-		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key, focusPart, compositeSlots }).finally(() => {
+		computeWithDeepSeek({ title: titleText, type, options, rawType, hint, key, wholeQuestion, compositeSlots }).finally(() => {
 			inflight.delete(key);
 		});
 	if (!existing) inflight.set(key, pending);
@@ -469,7 +461,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		source: 'deepseek',
 		model: { model: result.model, confidence: result.formatted.confidence, note: result.formatted.note },
 		cached: false,
-		focusPart: focusPart ? focusPart.n : null,
+		focusPart: null,
 		subQuestionCount: subQuestions.length,
 		slots: compositeSlots,
 		ms: Date.now() - started,
@@ -1003,7 +995,16 @@ function start(attempt = 0) {
 		server.close(() => process.exit(0));
 		setTimeout(() => process.exit(0), 1500).unref();
 	};
-	process.on('SIGINT', () => shutdown('SIGINT'));
+	process.on('SIGINT', () => {
+		// 后台托管模式（OCS_TIKU_DETACHED=1）下忽略控制台 Ctrl+C：
+		// 这个信号常常来自启动它的终端/自动化会话结束时对整组进程的广播，不该把常驻题库带走。
+		if (process.env.OCS_TIKU_DETACHED === '1') return;
+		shutdown('SIGINT');
+	});
+	process.on('SIGBREAK', () => {
+		if (process.env.OCS_TIKU_DETACHED === '1') return;
+		shutdown('SIGBREAK');
+	});
 	process.on('SIGTERM', () => shutdown('SIGTERM'));
 	process.on('uncaughtException', (error) => console.error('[uncaught]', error));
 	process.on('unhandledRejection', (error) => console.error('[unhandled]', error));

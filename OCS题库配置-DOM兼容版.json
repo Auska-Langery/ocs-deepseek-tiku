@@ -1,0 +1,18 @@
+[
+  {
+    "name": "DeepSeek 本地题库（自适应段数）",
+    "homepage": "http://127.0.0.1:8787/",
+    "url": "http://127.0.0.1:8787/api/answer",
+    "method": "post",
+    "type": "GM_xmlhttpRequest",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "data": {
+      "title": "${title}",
+      "options": "${options}",
+      "type": "${type}"
+    },
+    "handler": "return (res) => {\n  try {\n    const norm = (s) => String(s || '').replace(/\\s+/g, '');\n    if (String(res.type || '') === 'completion' && res.answer) {\n      const probe = norm(res.question).slice(0, 24);\n      const roots = Array.from(document.querySelectorAll('.questionLi'));\n      const root = roots.find((el) => norm(el.textContent).includes(probe));\n      if (root) {\n        const n = root.querySelectorAll('.answerBg .answer_p, .textDIV, .eidtDiv').length;\n        let text = String(res.answer);\n        try {\n          const arr = JSON.parse(text);\n          if (Array.isArray(arr)) text = String(arr[arr.length - 1] || '');\n        } catch (e) {}\n        if (n >= 2 && text) {\n          const pieces = new Array(n - 1).fill('（略）');\n          pieces.push(text);\n          return [res.question, JSON.stringify(pieces)];\n        }\n      }\n    }\n  } catch (e) {}\n  return [res.question, res.answer];\n};"
+  }
+]
