@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>OCS DeepSeek 题库 · 管理台</title>
+		<style>
+			:root {
+				--bg: #f3f5f9;
+				--panel: #ffffff;
+				--ink: #101828;
+				--muted: #667085;
+				--line: #e6e9f0;
+				--accent: #4d6bfe;
+				--accent-weak: #eef1ff;
+				--ok: #12b76a;
+				--warn: #f79009;
+				--bad: #f04438;
+				--shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+				--radius: 14px;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				background: var(--bg);
+				color: var(--ink);
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+				font-size: 14px;
+				line-height: 1.6;
+				-webkit-font-smoothing: antialiased;
+			}
+			button,
+			input,
+			select,
+			textarea {
+				font-family: inherit;
+				font-size: inherit;
+				color: inherit;
+			}
+			a {
+				color: var(--accent);
+				text-decoration: none;
+			}
+			code,
+			.mono {
+				font-family: 'Cascadia Code', Consolas, 'SFMono-Regular', Menlo, monospace;
+			}
+
+			.topbar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 14px 24px;
+				background: linear-gradient(110deg, #23346e 0%, #34487f 45%, #4d6bfe 100%);
+				color: #fff;
+			}
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+			}
+			.logo {
+				width: 38px;
+				height: 38px;
+				border-radius: 11px;
+				background: rgba(255, 255, 255, 0.16);
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				display: grid;
+				place-items: center;
+				font-weight: 800;
+				letter-spacing: 0.5px;
+			}
+			.brand h1 {
+				font-size: 16px;
+				margin: 0;
+				font-weight: 650;
+			}
+			.brand p {
+				margin: 0;
+				font-size: 12px;
+				opacity: 0.78;
+			}
+			.status {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 12.5px;
+				background: rgba(255, 255, 255, 0.12);
+				border: 1px solid rgba(255, 255, 255, 0.18);
+				padding: 5px 12px;
+				border-radius: 999px;
+				white-space: nowrap;
+			}
+			.dot {
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: #ffd166;
+				box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.2);
+			}
+			.dot.ok {
+				background: #4ade80;
+				box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.22);
+			}
+			.dot.bad {
+				background: #f04438;
+				box-shadow: 0 0 0 3px rgba(240, 68, 56, 0.22);
+			}
+
+			.tabs {
+				display: flex;
+				gap: 6px;
+				padding: 10px 18px 0;
+				background: var(--panel);
+				border-bottom: 1px solid var(--line);
+				overflow-x: auto;
+			}
+			.tabs button {
+				border: 0;
+				background: transparent;
+				padding: 10px 14px;
+				border-radius: 10px 10px 0 0;
+				cursor: pointer;
+				color: var(--muted);
+				font-weight: 550;
+				white-space: nowrap;
+				border-bottom: 2px solid transparent;
+			}
+			.tabs button:hover {
+				color: var(--ink);
+				background: #f7f8fc;
+			}
+			.tabs button.active {
+				color: var(--accent);
+				border-bottom-color: var(--accent);
+				background: var(--accent-weak);
+			}
+			.pill {
+				display: inline-block;
+				min-width: 20px;
+				padding: 0 6px;
+				margin-left: 6px;
+				border-radius: 999px;
+				background: #e9ecf6;
+				color: #475467;
+				font-size: 11.5px;
+				line-height: 18px;
+				text-align: center;
+			}
+
+			main {
+				max-width: 1180px;
+				margin: 0 auto;
+				padding: 20px 18px 60px;
+			}
+			.panel {
+				display: none;
+			}
+			.panel.active {
+				display: block;
+				animation: fade 0.16s ease;
+			}
+			@keyframes fade {
+				from {
+					opacity: 0;
+					transform: translateY(3px);
+				}
+			}
+
+			.card {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow);
+				padding: 18px;
+				margin-bottom: 16px;
+			}
+			.card h2 {
+				margin: 0 0 4px;
+				font-size: 15px;
+				font-weight: 650;
+			}
+			.card .sub {
+				color: var(--muted);
+				font-size: 12.5px;
+				margin: 0 0 14px;
+			}
+			.grid2 {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 12px;
+			}
+			@media (max-width: 860px) {
+				.grid2 {
+					grid-template-columns: 1fr;
+				}
+			}
+
+			label.field {
+				display: block;
+				font-size: 12.5px;
+				color: var(--muted);
+				margin-bottom: 4px;
+				font-weight: 550;
+			}
+			input[type='text'],
+			input[type='password'],
+			input[type='number'],
+			select,
+			textarea {
+				width: 100%;
+				padding: 9px 11px;
+				border: 1px solid #d7dbe6;
+				border-radius: 10px;
+				background: #fff;
+				outline: none;
+				transition: border-color 0.15s, box-shadow 0.15s;
+			}
+			input:focus,
+			select:focus,
+			textarea:focus {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 3px rgba(77, 107, 254, 0.13);
+			}
+			textarea {
+				resize: vertical;
+				min-height: 74px;
+				line-height: 1.55;
+			}
+			.row {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+				flex-wrap: wrap;
+			}
+			.spacer {
+				flex: 1;
+			}
+
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				border: 1px solid #d7dbe6;
+				background: #fff;
+				color: var(--ink);
+				padding: 8px 14px;
+				border-radius: 10px;
+				cursor: pointer;
+				font-weight: 550;
+				transition: background 0.15s, border-color 0.15s, transform 0.05s;
+			}
+			.btn:hover {
+				background: #f7f8fc;
+				border-color: #c3c9d8;
+			}
+			.btn:active {
+				transform: translateY(1px);
+			}
+			.btn.primary {
+				background: var(--accent);
+				border-color: var(--accent);
+				color: #fff;
+			}
+			.btn.primary:hover {
+				background: #3f5cf0;
+			}
+			.btn.danger {
+				color: var(--bad);
+				border-color: #f4c7c3;
+			}
+			.btn.danger:hover {
+				background: #fef3f2;
+			}
+			.btn.small {
+				padding: 4px 9px;
+				font-size: 12.5px;
+				border-radius: 8px;
+			}
+			.btn:disabled {
+				opacity: 0.55;
+				cursor: not-allowed;
+			}
+
+			.answer-box {
+				border: 1px dashed #cdd5e8;
+				background: #f7f9ff;
+				border-radius: 12px;
+				padding: 16px;
+				min-height: 84px;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.answer-main {
+				font-size: 20px;
+				font-weight: 650;
+				word-break: break-word;
+				white-space: pre-wrap;
+			}
+			.answer-main.empty {
+				font-size: 13.5px;
+				font-weight: 400;
+				color: var(--muted);
+			}
+			.chips {
+				display: flex;
+				gap: 6px;
+				flex-wrap: wrap;
+			}
+			.chip {
+				font-size: 12px;
+				padding: 2px 9px;
+				border-radius: 999px;
+				background: #eef1f8;
+				color: #475467;
+			}
+			.chip.blue {
+				background: #eef1ff;
+				color: #3a52c9;
+			}
+			.chip.green {
+				background: #e8f8f0;
+				color: #0b7a45;
+			}
+			.chip.orange {
+				background: #fff4e5;
+				color: #b54708;
+			}
+			.chip.red {
+				background: #fef3f2;
+				color: #b42318;
+			}
+
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 13px;
+			}
+			th,
+			td {
+				text-align: left;
+				padding: 9px 10px;
+				border-bottom: 1px solid var(--line);
+				vertical-align: top;
+			}
+			th {
+				color: var(--muted);
+				font-weight: 550;
+				font-size: 12px;
+				background: #fafbfe;
+				position: sticky;
+				top: 0;
+				z-index: 1;
+			}
+			tbody tr:hover {
+				background: #fafbff;
+			}
+			td.q {
+				max-width: 380px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			td.a {
+				max-width: 260px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.empty-state {
+				padding: 30px;
+				text-align: center;
+				color: var(--muted);
+			}
+
+			.stats {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+			@media (max-width: 760px) {
+				.stats {
+					grid-template-columns: repeat(2, 1fr);
+				}
+			}
+			.stat {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				padding: 12px 14px;
+				box-shadow: var(--shadow);
+			}
+			.stat .k {
+				font-size: 12px;
+				color: var(--muted);
+			}
+			.stat .v {
+				font-size: 22px;
+				font-weight: 700;
+				margin-top: 2px;
+			}
+			.stat .v small {
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--muted);
+				margin-left: 4px;
+			}
+
+			.code {
+				position: relative;
+				background: #0f172a;
+				color: #d7e0ff;
+				border-radius: 12px;
+				padding: 14px 14px 12px;
+				overflow: auto;
+				font-size: 12.5px;
+				line-height: 1.6;
+				max-height: 380px;
+				white-space: pre;
+			}
+			.code .copy {
+				position: sticky;
+				float: right;
+				top: 0;
+				margin-left: 8px;
+			}
+			.steps {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				counter-reset: step;
+			}
+			.steps li {
+				position: relative;
+				padding: 10px 0 10px 44px;
+				border-bottom: 1px dashed var(--line);
+			}
+			.steps li:last-child {
+				border-bottom: 0;
+			}
+			.steps li::before {
+				counter-increment: step;
+				content: counter(step);
+				position: absolute;
+				left: 0;
+				top: 12px;
+				width: 28px;
+				height: 28px;
+				border-radius: 9px;
+				background: var(--accent-weak);
+				color: var(--accent);
+				font-weight: 700;
+				display: grid;
+				place-items: center;
+				font-size: 13px;
+			}
+			.steps b {
+				font-weight: 650;
+			}
+			.hint {
+				font-size: 12.5px;
+				color: var(--muted);
+			}
+			.note {
+				background: #fffaeb;
+				border: 1px solid #fedf89;
+				color: #93370d;
+				border-radius: 10px;
+				padding: 10px 12px;
+				font-size: 12.5px;
+			}
+			details {
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				padding: 10px 12px;
+				margin-top: 10px;
+				background: #fcfdff;
+			}
+			details summary {
+				cursor: pointer;
+				font-weight: 550;
+			}
+
+			#toast {
+				position: fixed;
+				left: 50%;
+				bottom: 28px;
+				transform: translate(-50%, 20px);
+				background: #101828;
+				color: #fff;
+				padding: 10px 18px;
+				border-radius: 10px;
+				font-size: 13px;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.2s, transform 0.2s;
+				z-index: 99;
+				max-width: 80vw;
+			}
+			#toast.show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+			#toast.err {
+				background: #b42318;
+			}
+
+			dialog {
+				border: 0;
+				border-radius: 16px;
+				padding: 0;
+				width: min(560px, 92vw);
+				box-shadow: 0 24px 60px rgba(16, 24, 40, 0.24);
+			}
+			dialog::backdrop {
+				background: rgba(16, 24, 40, 0.45);
+			}
+			dialog .dlg-body {
+				padding: 20px;
+			}
+			dialog h3 {
+				margin: 0 0 12px;
+				font-size: 15px;
+			}
+			.dlg-actions {
+				display: flex;
+				justify-content: flex-end;
+				gap: 8px;
+				margin-top: 16px;
+			}
+			.form-row {
+				margin-bottom: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<header class="topbar">
+			<div class="brand">
+				<div class="logo">DS</div>
+				<div>
+					<h1>OCS DeepSeek 题库</h1>
+					<p>本地题库 · 命中缓存，未命中交给 DeepSeek</p>
+				</div>
+			</div>
+			<div class="status">
+				<span class="dot" id="dot"></span>
+				<span id="statusText">正在连接…</span>
+			</div>
+		</header>
+
+		<nav class="tabs" id="tabs">
+			<button data-tab="test" class="active">测试台</button>
+			<button data-tab="bank">题库管理<span class="pill" id="bankCount">0</span></button>
+			<button data-tab="settings">设置</button>
+			<button data-tab="guide">接入 OCS</button>
+		</nav>
+
+		<main>
+			<!-- ==================== 测试台 ==================== -->
+			<section class="panel active" id="panel-test">
+				<div class="stats">
+					<div class="stat"><div class="k">题库总量</div><div class="v" id="s-total">-<small>题</small></div></div>
+					<div class="stat"><div class="k">本地命中率</div><div class="v" id="s-hit">-</div></div>
+					<div class="stat"><div class="k">AI 调用</div><div class="v" id="s-ai">-<small>次</small></div></div>
+					<div class="stat"><div class="k">当前模型</div><div class="v" id="s-model" style="font-size: 14px; padding-top: 6px">-</div></div>
+				</div>
+
+				<div class="card">
+					<h2>单题测试</h2>
+					<p class="sub">粘贴一道题，看看题库会返回什么。命中本地题库时不会调用 DeepSeek。</p>
+					<div class="form-row">
+						<label class="field" for="t-title">题干</label>
+						<textarea id="t-title" placeholder="例：下列哪个不是 JavaScript 的基本数据类型？"></textarea>
+					</div>
+					<div class="form-row grid2">
+						<div>
+							<label class="field" for="t-type">题型</label>
+							<select id="t-type">
+								<option value="">自动识别 / 未知</option>
+								<option value="single">单选题</option>
+								<option value="multiple">多选题</option>
+								<option value="judgement">判断题</option>
+								<option value="completion">填空题</option>
+							</select>
+						</div>
+						<div>
+							<label class="field" for="t-hint">补充提示（可选）</label>
+							<input type="text" id="t-hint" placeholder="例：这门课是《计算机网络》" />
+						</div>
+					</div>
+					<div class="form-row">
+						<label class="field" for="t-options">选项（每行一个，可带 A. 前缀；判断题、填空题可留空）</label>
+						<textarea id="t-options" placeholder="A. number&#10;B. int&#10;C. float&#10;D. char"></textarea>
+					</div>
+					<div class="row">
+						<button class="btn primary" id="t-ask">获取答案</button>
+						<button class="btn" id="t-clear">清空</button>
+						<span class="spacer"></span>
+						<span class="hint" id="t-elapsed"></span>
+					</div>
+					<div class="answer-box" id="t-result" style="margin-top: 14px">
+						<div class="answer-main empty">答案会显示在这里</div>
+					</div>
+				</div>
+
+				<div class="card">
+					<h2>最近调用</h2>
+					<p class="sub">服务端最近 30 条请求记录，用于排查“为什么这题没答上”。</p>
+					<div id="recent"></div>
+				</div>
+			</section>
+
+			<!-- ==================== 题库管理 ==================== -->
+			<section class="panel" id="panel-bank">
+				<div class="card">
+					<div class="row" style="margin-bottom: 12px">
+						<input type="text" id="b-q" placeholder="搜索题干…" style="max-width: 280px" />
+						<select id="b-type" style="max-width: 150px">
+							<option value="">全部题型</option>
+							<option value="single">单选题</option>
+							<option value="multiple">多选题</option>
+							<option value="judgement">判断题</option>
+							<option value="completion">填空题</option>
+							<option value="unknown">未知</option>
+						</select>
+						<button class="btn small" id="b-search">搜索</button>
+						<span class="spacer"></span>
+						<button class="btn small primary" id="b-add">新增</button>
+						<button class="btn small" id="b-import">导入</button>
+						<button class="btn small" id="b-export-json">导出 JSON</button>
+						<button class="btn small" id="b-export-csv">导出 CSV</button>
+						<button class="btn small danger" id="b-clear">清空</button>
+						<input type="file" id="b-file" accept=".json,application/json" hidden />
+					</div>
+					<div id="bank-table"></div>
+					<div class="row" style="margin-top: 12px">
+						<span class="hint" id="b-pageinfo"></span>
+						<span class="spacer"></span>
+						<button class="btn small" id="b-prev">上一页</button>
+						<button class="btn small" id="b-next">下一页</button>
+					</div>
+				</div>
+			</section>
+
+			<!-- ==================== 设置 ==================== -->
+			<section class="panel" id="panel-settings">
+				<div class="card">
+					<h2>DeepSeek 接口</h2>
+					<p class="sub">
+						在 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer">platform.deepseek.com</a> 创建
+						API Key，粘贴到这里保存即可。Key 只保存在本机 data/config.json。
+					</p>
+					<div class="form-row">
+						<label class="field" for="cfg-key">API Key</label>
+						<div class="row">
+							<input type="password" id="cfg-key" placeholder="sk-…（留空表示不修改）" style="flex: 1" />
+							<button class="btn small" id="cfg-key-toggle">显示</button>
+							<button class="btn small danger" id="cfg-key-clear">清除</button>
+						</div>
+						<div class="hint" id="cfg-key-state" style="margin-top: 4px"></div>
+					</div>
+					<div class="form-row grid2">
+						<div>
+							<label class="field" for="cfg-url">接口地址</label>
+							<input type="text" id="cfg-url" />
+						</div>
+						<div>
+							<label class="field" for="cfg-model">模型</label>
+							<input type="text" id="cfg-model" list="model-list" />
+							<datalist id="model-list"></datalist>
+						</div>
+					</div>
+					<div class="form-row grid2">
+						<div>
+							<label class="field" for="cfg-fallback">备用模型（逗号分隔，主模型不可用时自动切换）</label>
+							<input type="text" id="cfg-fallback" placeholder="deepseek-flash, deepseek-reasoner" />
+						</div>
+						<div>
+							<label class="field" for="cfg-thinking">思考模式</label>
+							<select id="cfg-thinking">
+								<option value="disabled">关闭（更快更省钱）</option>
+								<option value="enabled">开启（推理更稳）</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-row grid2">
+						<div>
+							<label class="field" for="cfg-temp">temperature</label>
+							<input type="number" id="cfg-temp" min="0" max="2" step="0.1" />
+						</div>
+						<div>
+							<label class="field" for="cfg-maxtokens">max_tokens</label>
+							<input type="number" id="cfg-maxtokens" min="64" max="8192" step="64" />
+						</div>
+					</div>
+					<div class="form-row grid2">
+						<div>
+							<label class="field" for="cfg-timeout">单次请求超时（秒）</label>
+							<input type="number" id="cfg-timeout" min="5" max="120" step="1" />
+						</div>
+						<div>
+							<label class="field" for="cfg-token">访问令牌（可选，填了之后 OCS 端也要带）</label>
+							<input type="text" id="cfg-token" placeholder="留空表示不校验" />
+						</div>
+					</div>
+					<div class="field" style="margin-top: 16px">答题策略</div>
+					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
+						<input type="checkbox" id="cfg-skip-manual" style="width: 16px" />
+						<span>需要「截图 / 拍照 / 画图 / 上传图片」的题目留空不答</span>
+					</label>
+					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
+						<input type="checkbox" id="cfg-skip-image" style="width: 16px" />
+						<span>题干带图（“如图 / 下图”）的题目留空不答 —— 模型看不到图，硬答基本是错的</span>
+					</label>
+					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
+						<input type="checkbox" id="cfg-html" style="width: 16px" />
+						<span>简答 / 编程题答案转成 HTML 提交（保留换行，避免 <code>&lt;stdio.h&gt;</code> 被页面吃掉）</span>
+					</label>
+					<div class="row" style="margin-top: 14px">
+						<button class="btn primary" id="cfg-save">保存设置</button>
+						<button class="btn" id="cfg-test">测试连接</button>
+						<span class="hint" id="cfg-msg"></span>
+					</div>
+					<div id="cfg-test-result" style="margin-top: 12px"></div>
+				</div>
+
+				<div class="card">
+					<h2>服务信息</h2>
+					<table id="cfg-info"></table>
+				</div>
+			</section>
+
+			<!-- ==================== 接入说明 ==================== -->
+			<section class="panel" id="panel-guide">
+				<div class="card">
+					<h2>四步接入 OCS</h2>
+					<p class="sub">这是 OCS Desktop（ocsjs 5.0）的题库配置，粘贴即用，不需要装插件。</p>
+					<ol class="steps">
+						<li><b>启动题库</b>：双击 <code>启动题库.cmd</code>，看到“监听地址”就说明服务起来了（窗口别关）。</li>
+						<li><b>填 API Key</b>：在「设置」里粘贴 DeepSeek 的 Key，点“保存设置”，再点“测试连接”确认能通。</li>
+						<li>
+							<b>粘贴配置</b>：复制下面的 JSON → 回到正在挂课的页面 → 打开「OCS 网课助手」悬浮窗的
+							「通用」→「全局设置」→ 找到 <b>题库配置</b>（按钮上写着“N 个可用题库（点击进入配置）”）。
+							如果按钮右边有 <b>「⋯」</b>，先点它选 <b>「自定义题库」</b>，别直接点主按钮——
+							主按钮打开的是官方一键获取面板，里面只会显示你已经有的题库，看不到输入框。
+							然后在「题库配置填写/修改区」里粘贴 → 点 <b>「保存配置」</b>。
+						</li>
+						<li><b>开始答题</b>：OCS 会自动把题目发到本机题库；答过的题会记进本地题库，下次秒回、不花钱。</li>
+					</ol>
+				</div>
+
+				<div class="card">
+					<h2>题库配置（复制这段）</h2>
+					<p class="sub">地址已根据当前页面自动生成；如果改过端口，请用新端口重新打开本页再复制。</p>
+					<div class="code" id="ocs-config"><button class="btn small copy" id="copy-config">复制</button><span id="ocs-config-text"></span></div>
+					<div class="note" style="margin-top: 12px">
+						粘贴后 OCS 可能会弹出一个“安全提醒”，这是因为它检测到配置里带了自定义解析器（handler）。
+						本配置的 handler 只读取返回的答案，不访问页面、不联网上传任何东西，点“继续使用”即可。
+					</div>
+				</div>
+
+				<div class="card">
+					<h2>常见问题</h2>
+					<details open>
+						<summary>为什么用 GM_xmlhttpRequest，而不是 fetch？</summary>
+						<div class="hint" style="margin-top: 6px">
+							答题页是 https 网页，从页面里直接 <code>fetch</code> 到 <code>http://127.0.0.1</code>，浏览器会把它当成
+							跨域 / 私有网络请求拦掉，面板上就显示 <b>TypeError: Failed to fetch</b>。
+							OCS 内置的脚本猫提供 <code>GM_xmlhttpRequest</code>，由扩展后台代为请求，不受页面跨域、CSP 和混合内容限制，所以稳定可用。
+							本题库的接口同时也开了 CORS：万一你的环境里没有 GM 接口，把配置里的 <code>"type"</code> 改回 <code>"fetch"</code> 也能用。
+						</div>
+					</details>
+					<details>
+						<summary>题库那一行显示 TypeError: Failed to fetch？</summary>
+						<div class="hint" style="margin-top: 6px">
+							只有两种可能：①题库服务没开（双击 <code>启动题库.cmd</code>，黑窗口留着）；②配置里的 <code>"type"</code> 还是 <code>"fetch"</code>，被浏览器拦了
+							（改成 <code>"GM_xmlhttpRequest"</code>）。判断方法：浏览器打开 <code>/api/ping</code> 有 JSON 就是服务正常。
+						</div>
+					</details>
+					<details>
+						<summary>保存了，但 OCS 里的题库还是原来那个？</summary>
+						<div class="hint" style="margin-top: 6px">
+							九成是点错入口了：题库配置这一行，<b>主按钮</b>打开的是「官方题库」一键获取面板，只会列出你已有的题库（比如言溪题库），
+							里面没有输入框。要点按钮右侧的 <b>「⋯」→「自定义题库」</b>，才是有文本框、有「保存配置」按钮的那个弹窗。
+							保存成功后按钮文字会变成「N 个可用题库」，再刷新一下挂课页面即可。
+							另外：粘贴的新配置会<b>整体替换</b>原来的题库；想两个都留着，就把两份配置放进同一个数组里（中间加逗号），
+							OCS 会并发查询所有题库。
+						</div>
+					</details>
+					<details>
+						<summary>顶部黄色提示说“当前题库配置暂不支持图片、公式等题目处理”？</summary>
+						<div class="hint" style="margin-top: 6px">
+							这不是报错，是 OCS 的「图片题优化」兼容性提示：它发现你开了图片题优化，但这个题库配置没有声明
+							<code>${images}</code> 等图片字段，所以提醒你图片题优化不会生效（官方注释：仅提示，不限制）。
+							DeepSeek 本来也看不了图，直接点提示右上角的 <b>×</b> 关掉即可，同一份配置不会再弹；
+							想彻底不出现，就到「通用 → 全局设置 → 自动答题设置」把 <b>图片题优化</b> 取消勾选。
+						</div>
+					</details>
+					<details>
+						<summary>判断题、填空题怎么返回？</summary>
+						<div class="hint" style="margin-top: 6px">
+							判断题返回“对 / 错”（或选项原文，如“A. 正确”）；填空题多个空用 <code>#</code> 分隔，例如
+							<code>80#443</code>。多选返回选项原文并用 <code>#</code> 连接，OCS 会自动拆开勾选。
+						</div>
+					</details>
+					<details>
+						<summary>图片题能答吗？</summary>
+						<div class="hint" style="margin-top: 6px">
+							不能。DeepSeek 文本模型不支持看图，本服务也不会把图片上传。图片题请在 OCS 里关掉“图片题优化”，交给别的题库或跳过。
+						</div>
+					</details>
+					<details>
+						<summary>简答题答案挤成一行 / 编程题的 #include、&lt;stdio.h&gt; 丢了？</summary>
+						<div class="hint" style="margin-top: 6px">
+							OCS 是把简答/编程题的答案当 HTML 塞进富文本编辑器的（<code>body.innerHTML = answer</code>），
+							所以换行会被折叠、<code>&lt;stdio.h&gt;</code> 会被当标签吃掉、<code>#include</code> 还会被 OCS 当成多空分隔符切开。
+							本服务已自动处理：编程题整段转义并把换行写成 <code>&lt;br&gt;</code>、代码里的 <code>#</code> 写成 <code>&amp;#35;</code>，
+							多行简答把换行写成 <code>&lt;br&gt;</code>，单行填空（如 <code>80#443</code>）保持纯文本。
+							到「设置 → 答题策略」可以关掉「简答 / 编程题答案转成 HTML」。
+						</div>
+					</details>
+					<details>
+						<summary>为什么有些题直接空着不答？</summary>
+						<div class="hint" style="margin-top: 6px">
+							两类题会被主动跳过：① 题干要求「截图 / 拍照 / 画图 / 上传图片」——OCS 只能填文字，答了也没用；
+							② 题干里带图（“如图”“下图”“【图片】”）——模型看不到图，硬答基本是错的。
+							两者都在「设置 → 答题策略」里，可以单独关掉。被跳过的题不消耗 token、也不写进题库。
+						</div>
+					</details>
+					<details>
+						<summary>端口被占用 / 想换端口？</summary>
+						<div class="hint" style="margin-top: 6px">
+							先试 <code>重启题库.cmd</code>（会结束占用 8787 的旧实例再启动）。要换端口就编辑 <code>config.json</code> 里的 <code>port</code>（或启动时加 <code>--port 8888</code>），重启服务，然后用新地址重新打开本页、重新复制上面的配置。
+						</div>
+					</details>
+					<details>
+						<summary>题库数据存在哪？会被上传吗？</summary>
+						<div class="hint" style="margin-top: 6px">
+							全部存在 <code>data/bank.json</code>，只在本机。除了把题目发给 DeepSeek 换答案，不会上传到任何第三方。
+						</div>
+					</details>
+				</div>
+			</section>
+		</main>
+
+		<dialog id="add-dialog">
+			<form method="dialog" class="dlg-body" id="add-form">
+				<h3>新增题目</h3>
+				<div class="form-row">
+					<label class="field" for="add-title">题干</label>
+					<textarea id="add-title" required></textarea>
+				</div>
+				<div class="form-row grid2">
+					<div>
+						<label class="field" for="add-type">题型</label>
+						<select id="add-type">
+							<option value="single">单选题</option>
+							<option value="multiple">多选题</option>
+							<option value="judgement">判断题</option>
+							<option value="completion">填空题</option>
+						</select>
+					</div>
+					<div>
+						<label class="field" for="add-answer">答案</label>
+						<input type="text" id="add-answer" placeholder="如 B / A#C / 对 / 80#443" required />
+					</div>
+				</div>
+				<div class="form-row">
+					<label class="field" for="add-options">选项（每行一个，可留空）</label>
+					<textarea id="add-options"></textarea>
+				</div>
+				<div class="dlg-actions">
+					<button class="btn" value="cancel" formmethod="dialog">取消</button>
+					<button class="btn primary" id="add-submit" value="ok">保存</button>
+				</div>
+			</form>
+		</dialog>
+
+		<div id="toast"></div>
+
+		<script>
+			'use strict';
+			const $ = (sel, root = document) => root.querySelector(sel);
+			const state = { config: null, page: 1, size: 20, pages: 1, q: '', type: '', total: 0, tab: 'test' };
+
+			// ---------------------------------------------------------------- 基础工具
+			function escapeHtml(value) {
+				return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+			}
+			function truncate(value, len) {
+				const text = String(value ?? '');
+				return text.length > len ? text.slice(0, len) + '…' : text;
+			}
+			let toastTimer;
+			function toast(message, isError) {
+				const el = $('#toast');
+				el.textContent = message;
+				el.className = 'show' + (isError ? ' err' : '');
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(() => (el.className = ''), 2600);
+			}
+			async function copyText(text) {
+				try {
+					await navigator.clipboard.writeText(text);
+				} catch {
+					const ta = document.createElement('textarea');
+					ta.value = text;
+					document.body.appendChild(ta);
+					ta.select();
+					document.execCommand('copy');
+					ta.remove();
+				}
+				toast('已复制到剪贴板');
+			}
+			async function api(path, options = {}) {
+				const init = { method: options.method || 'GET' };
+				if (options.body !== undefined) {
+					init.headers = { 'Content-Type': 'application/json' };
+					init.body = JSON.stringify(options.body);
+				}
+				const res = await fetch(path, init);
+				let data = null;
+				try {
+					data = await res.json();
+				} catch {}
+				if (!res.ok) throw new Error((data && data.msg) || 'HTTP ' + res.status);
+				return data;
+			}
+			const TYPE_LABEL = { single: '单选', multiple: '多选', judgement: '判断', completion: '填空', unknown: '未知' };
+			function typeLabel(type) {
+				return TYPE_LABEL[type] || type || '未知';
+			}
+			function timeAgo(iso) {
+				if (!iso) return '-';
+				const diff = Date.now() - new Date(iso).getTime();
+				if (!Number.isFinite(diff) || diff < 0) return '-';
+				if (diff < 60000) return '刚刚';
+				if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+				if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+				return Math.floor(diff / 86400000) + ' 天前';
+			}
+
+			// ---------------------------------------------------------------- 标签页
+			function switchTab(tab) {
+				state.tab = tab;
+				document.querySelectorAll('#tabs button').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === tab));
+				document.querySelectorAll('.panel').forEach((panel) => panel.classList.toggle('active', panel.id === 'panel-' + tab));
+				if (tab === 'bank') loadBank();
+				if (tab === 'settings') loadConfig();
+			}
+			$('#tabs').addEventListener('click', (event) => {
+				const btn = event.target.closest('button[data-tab]');
+				if (btn) switchTab(btn.dataset.tab);
+			});
+
+			// ---------------------------------------------------------------- 状态 & 统计
+			async function refreshHealth() {
+				try {
+					const data = await api('/health');
+					$('#dot').className = 'dot ok';
+					$('#statusText').textContent =
+						'服务正常 · ' + (data.mock ? '模拟模式' : data.hasApiKey ? '已配置 Key' : '未配置 Key') + ' · ' + data.bankSize + ' 题';
+					$('#s-model').textContent = data.mock ? 'mock 模拟' : data.model;
+				} catch {
+					$('#dot').className = 'dot bad';
+					$('#statusText').textContent = '服务未连接';
+				}
+			}
+			async function refreshStats() {
+				try {
+					const data = await api('/api/stats');
+					$('#s-total').innerHTML = escapeHtml(String(data.total)) + '<small>题</small>';
+					$('#s-hit').textContent = data.lookups ? Math.round((data.hits / data.lookups) * 100) + '%' : '-';
+					$('#s-ai').innerHTML = escapeHtml(String(data.aiCalls)) + '<small>次</small>';
+					$('#bankCount').textContent = String(data.total);
+					if (state.total !== data.total) state.total = data.total;
+				} catch {}
+			}
+			async function refreshRecent() {
+				try {
+					const data = await api('/api/logs?limit=30');
+					if (!data.items.length) {
+						$('#recent').innerHTML = '<div class="empty-state">还没有调用记录</div>';
+						return;
+					}
+					const rows = data.items
+						.map((item) => {
+							const badge = item.source === 'cache' ? 'green' : item.source === 'error' ? 'red' : 'blue';
+							const label = item.source === 'cache' ? '缓存' : item.source === 'error' ? '失败' : 'AI';
+							return `<tr>
+								<td class="q" title="${escapeHtml(item.title)}">${escapeHtml(truncate(item.title, 46))}</td>
+								<td>${escapeHtml(typeLabel(item.type))}</td>
+								<td class="a" title="${escapeHtml(item.answer || item.error || '')}">${escapeHtml(truncate(item.answer || item.error || '-', 30))}</td>
+								<td><span class="chip ${badge}">${label}</span></td>
+								<td>${escapeHtml(String(item.ms ?? '-'))} ms</td>
+							</tr>`;
+						})
+						.join('');
+					$('#recent').innerHTML = `<table><thead><tr><th>题目</th><th>题型</th><th>结果</th><th>来源</th><th>耗时</th></tr></thead><tbody>${rows}</tbody></table>`;
+				} catch {}
+			}
+
+			// ---------------------------------------------------------------- 测试台
+			const resultBox = $('#t-result');
+			function renderResult(payload) {
+				if (!payload || !payload.answer) {
+					resultBox.innerHTML = `<div class="answer-main empty">${escapeHtml((payload && payload.msg) || '没有拿到答案')}</div>`;
+					return;
+				}
+				const sourceChip =
+					payload.source === 'cache' ? '<span class="chip green">本地题库</span>' : payload.source === 'deepseek' ? '<span class="chip blue">DeepSeek</span>' : '';
+				const chips = [
+					sourceChip,
+					`<span class="chip">${escapeHtml(typeLabel(payload.type))}</span>`,
+					payload.model ? `<span class="chip">${escapeHtml(payload.model)}</span>` : '',
+					payload.confidence ? `<span class="chip">置信度 ${(payload.confidence * 100).toFixed(0)}%</span>` : '',
+					payload.ms !== undefined ? `<span class="chip">${escapeHtml(String(payload.ms))} ms</span>` : '',
+					payload.letters && payload.letters.length ? `<span class="chip">${escapeHtml(payload.letters.join(''))}</span>` : ''
+				]
+					.filter(Boolean)
+					.join('');
+				resultBox.innerHTML = `<div class="answer-main"></div><div class="chips">${chips}</div>`;
+				resultBox.querySelector('.answer-main').textContent = payload.answer;
+				if (payload.note) {
+					const note = document.createElement('div');
+					note.className = 'hint';
+					note.textContent = payload.note;
+					resultBox.appendChild(note);
+				}
+			}
+			async function ask() {
+				const button = $('#t-ask');
+				const title = $('#t-title').value.trim();
+				if (!title) return toast('请先填写题干', true);
+				button.disabled = true;
+				button.textContent = '查询中…';
+				$('#t-elapsed').textContent = '';
+				const started = performance.now();
+				try {
+					const data = await api('/api/answer', {
+						method: 'POST',
+						body: { title, options: $('#t-options').value, type: $('#t-type').value, hint: $('#t-hint').value }
+					});
+					renderResult(data);
+					$('#t-elapsed').textContent = '用时 ' + Math.round(performance.now() - started) + ' ms';
+					refreshStats();
+					refreshRecent();
+					refreshHealth();
+				} catch (error) {
+					renderResult({ msg: error.message });
+					toast(error.message, true);
+				} finally {
+					button.disabled = false;
+					button.textContent = '获取答案';
+				}
+			}
+			$('#t-ask').addEventListener('click', ask);
+			$('#t-clear').addEventListener('click', () => {
+				$('#t-title').value = '';
+				$('#t-options').value = '';
+				$('#t-hint').value = '';
+				$('#t-elapsed').textContent = '';
+				renderResult(null);
+			});
+			$('#t-title').addEventListener('keydown', (event) => {
+				if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+					event.preventDefault();
+					ask();
+				}
+			});
+
+			// ---------------------------------------------------------------- 题库管理
+			async function loadBank() {
+				try {
+					const query = new URLSearchParams({ q: state.q, type: state.type, page: String(state.page), size: String(state.size), sort: 'updated' });
+					const data = await api('/api/bank?' + query.toString());
+					state.pages = data.pages || 1;
+					state.total = data.total || 0;
+					$('#bankCount').textContent = String(state.total);
+					$('#b-pageinfo').textContent = `共 ${state.total} 条 · 第 ${state.page} / ${state.pages} 页`;
+					$('#b-prev').disabled = state.page <= 1;
+					$('#b-next').disabled = state.page >= state.pages;
+					renderBankTable(data.items || []);
+				} catch (error) {
+					$('#bank-table').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+				}
+			}
+			function renderBankTable(items) {
+				if (!items.length) {
+					$('#bank-table').innerHTML = '<div class="empty-state">题库还是空的。启动 OCS 答几道题，或者点右上角“新增”。</div>';
+					return;
+				}
+				const rows = items
+					.map((item) => {
+						const sourceClass = item.source === 'manual' ? 'orange' : item.source === 'cache' ? 'green' : 'blue';
+						const sourceLabel = item.source === 'manual' ? '手工' : item.source === 'cache' ? '复用' : 'AI';
+						return `<tr>
+							<td class="q" title="${escapeHtml(item.title)}">${escapeHtml(truncate(item.title, 54))}</td>
+							<td>${escapeHtml(typeLabel(item.type))}</td>
+							<td class="a" title="${escapeHtml(item.answer)}">${escapeHtml(truncate(item.answer, 34))}</td>
+							<td><span class="chip ${sourceClass}">${sourceLabel}</span></td>
+							<td>${escapeHtml(String(item.hits ?? 0))}</td>
+							<td>${escapeHtml(timeAgo(item.updatedAt))}</td>
+							<td>
+								<button class="btn small" data-copy="${escapeHtml(item.id)}">复制</button>
+								<button class="btn small danger" data-del="${escapeHtml(item.id)}">删除</button>
+							</td>
+						</tr>`;
+					})
+					.join('');
+				$('#bank-table').innerHTML = `<table><thead><tr><th>题目</th><th>题型</th><th>答案</th><th>来源</th><th>命中</th><th>更新</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+			}
+			$('#bank-table').addEventListener('click', async (event) => {
+				const delId = event.target.getAttribute('data-del');
+				const copyId = event.target.getAttribute('data-copy');
+				if (delId) {
+					if (!confirm('确认删除这条题目？')) return;
+					try {
+						const data = await api('/api/bank/' + encodeURIComponent(delId), { method: 'DELETE' });
+						toast(data.msg || '已删除');
+						loadBank();
+						refreshStats();
+					} catch (error) {
+						toast(error.message, true);
+					}
+				}
+				if (copyId) {
+					const row = event.target.closest('tr');
+					copyText(row.querySelector('td.a').getAttribute('title') || '');
+				}
+			});
+			$('#b-search').addEventListener('click', () => {
+				state.q = $('#b-q').value.trim();
+				state.type = $('#b-type').value;
+				state.page = 1;
+				loadBank();
+			});
+			$('#b-q').addEventListener('keydown', (event) => {
+				if (event.key === 'Enter') $('#b-search').click();
+			});
+			$('#b-type').addEventListener('change', () => $('#b-search').click());
+			$('#b-prev').addEventListener('click', () => {
+				if (state.page > 1) {
+					state.page--;
+					loadBank();
+				}
+			});
+			$('#b-next').addEventListener('click', () => {
+				if (state.page < state.pages) {
+					state.page++;
+					loadBank();
+				}
+			});
+			$('#b-export-json').addEventListener('click', () => {
+				window.location.href = '/api/export?format=json';
+			});
+			$('#b-export-csv').addEventListener('click', () => {
+				window.location.href = '/api/export?format=csv';
+			});
+			$('#b-clear').addEventListener('click', async () => {
+				if (!confirm('确认清空整个题库？清空后无法恢复，建议先导出备份。')) return;
+				try {
+					const data = await api('/api/bank', { method: 'POST', body: { all: true } });
+					toast(data.msg || '已清空');
+					state.page = 1;
+					loadBank();
+					refreshStats();
+				} catch (error) {
+					toast(error.message, true);
+				}
+			});
+			$('#b-import').addEventListener('click', () => $('#b-file').click());
+			$('#b-file').addEventListener('change', async (event) => {
+				const file = event.target.files && event.target.files[0];
+				event.target.value = '';
+				if (!file) return;
+				try {
+					const text = await file.text();
+					const parsed = JSON.parse(text);
+					const data = await api('/api/import', { method: 'POST', body: { entries: parsed, mode: 'merge' } });
+					toast(data.msg || '导入完成');
+					state.page = 1;
+					loadBank();
+					refreshStats();
+				} catch (error) {
+					toast('导入失败：' + error.message, true);
+				}
+			});
+			$('#b-add').addEventListener('click', () => {
+				$('#add-form').reset();
+				$('#add-dialog').showModal();
+			});
+			$('#add-submit').addEventListener('click', async (event) => {
+				event.preventDefault();
+				const title = $('#add-title').value.trim();
+				const answer = $('#add-answer').value.trim();
+				if (!title || !answer) return toast('题干和答案都要填', true);
+				try {
+					await api('/api/bank', {
+						method: 'POST',
+						body: { title, type: $('#add-type').value, answer, options: $('#add-options').value }
+					});
+					$('#add-dialog').close();
+					toast('已保存');
+					state.page = 1;
+					loadBank();
+					refreshStats();
+				} catch (error) {
+					toast(error.message, true);
+				}
+			});
+
+			// ---------------------------------------------------------------- 设置
+			function fillConfig(config) {
+				if (!config) return;
+				state.config = config;
+				$('#cfg-url').value = config.baseUrl || '';
+				$('#cfg-model').value = config.model || '';
+				$('#cfg-thinking').value = config.thinking || 'disabled';
+				$('#cfg-temp').value = config.temperature ?? 0;
+				$('#cfg-maxtokens').value = config.maxTokens ?? 1200;
+				$('#cfg-timeout').value = config.timeoutSeconds ?? 35;
+				$('#cfg-fallback').value = (config.fallbackModels || []).join(', ');
+				$('#cfg-token').value = config.token || '';
+				$('#cfg-skip-manual').checked = config.skipManualWork !== false;
+				$('#cfg-skip-image').checked = config.skipImageQuestions !== false;
+				$('#cfg-html').checked = config.htmlAnswer !== false;
+				$('#cfg-key').value = '';
+				$('#cfg-key').placeholder = config.apiKeyMasked ? '已保存：' + config.apiKeyMasked + '（留空不修改）' : 'sk-…（还没有配置）';
+				$('#cfg-key-state').textContent = config.apiKeyMasked ? '当前 Key：' + config.apiKeyMasked : '尚未配置 Key，无法调用 DeepSeek。';
+				renderConfigInfo(config);
+			}
+			function renderConfigInfo(config) {
+				const rows = [
+					['服务地址', `http://${config.host}:${config.port}`],
+					['答题接口', `http://${config.host}:${config.port}/api/answer`],
+					['题库文件', 'data/bank.json（与 server.mjs 同目录）'],
+					['请求超时', config.timeoutSeconds + ' 秒'],
+					['并发数', String(config.concurrency)],
+					['模拟模式', config.mock ? '开启（不调用 API，用于调试）' : '关闭'],
+					['日志保留', config.logRetentionDays ? config.logRetentionDays + ' 天' : '不记录']
+				];
+				$('#cfg-info').innerHTML =
+					'<tbody>' + rows.map(([k, v]) => `<tr><th style="width: 110px">${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join('') + '</tbody>';
+			}
+			async function loadConfig() {
+				try {
+					const data = await api('/api/config');
+					fillConfig(data.config);
+				} catch (error) {
+					toast(error.message, true);
+				}
+			}
+			$('#cfg-key-toggle').addEventListener('click', () => {
+				const input = $('#cfg-key');
+				input.type = input.type === 'password' ? 'text' : 'password';
+				$('#cfg-key-toggle').textContent = input.type === 'password' ? '显示' : '隐藏';
+			});
+			$('#cfg-key-clear').addEventListener('click', async () => {
+				if (!confirm('确认清除已保存的 API Key？')) return;
+				try {
+					const data = await api('/api/config', { method: 'POST', body: { apiKey: '' } });
+					fillConfig(data.config);
+					refreshHealth();
+					toast('已清除 API Key');
+				} catch (error) {
+					toast(error.message, true);
+				}
+			});
+			$('#cfg-save').addEventListener('click', async () => {
+				const patch = {
+					baseUrl: $('#cfg-url').value.trim(),
+					model: $('#cfg-model').value.trim(),
+					thinking: $('#cfg-thinking').value,
+					temperature: Number($('#cfg-temp').value),
+					maxTokens: Number($('#cfg-maxtokens').value),
+					timeoutSeconds: Number($('#cfg-timeout').value),
+					token: $('#cfg-token').value.trim(),
+					skipManualWork: $('#cfg-skip-manual').checked,
+					skipImageQuestions: $('#cfg-skip-image').checked,
+					htmlAnswer: $('#cfg-html').checked,
+					fallbackModels: $('#cfg-fallback')
+						.value.split(/[,，\s]+/)
+						.map((item) => item.trim())
+						.filter(Boolean)
+				};
+				const key = $('#cfg-key').value.trim();
+				if (key) patch.apiKey = key;
+				try {
+					const data = await api('/api/config', { method: 'POST', body: patch });
+					fillConfig(data.config);
+					refreshHealth();
+					toast(data.msg || '已保存');
+					$('#cfg-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
+				} catch (error) {
+					toast(error.message, true);
+				}
+			});
+			$('#cfg-test').addEventListener('click', async () => {
+				const box = $('#cfg-test-result');
+				box.innerHTML = '<div class="hint">正在测试…</div>';
+				try {
+					const data = await api('/api/config/test', { method: 'POST' });
+					const parts = [];
+					if (data.models && data.models.length) {
+						$('#model-list').innerHTML = data.models.map((m) => `<option value="${escapeHtml(m)}"></option>`).join('');
+						parts.push(
+							`<div class="hint" style="margin-top:6px">可用模型（${data.modelsMs} ms）：${data.models.map((m) => '<code>' + escapeHtml(m) + '</code>').join('、')}</div>`
+						);
+					}
+					if (data.modelsError) parts.push(`<div class="chip red">模型列表读取失败：${escapeHtml(data.modelsError)}</div>`);
+					if (data.ok) {
+						parts.unshift(`<div class="chip green">连接成功</div> <span class="hint">${escapeHtml(data.model || '')} · ${escapeHtml(String(data.ms ?? ''))} ms · 试答「1+1=？」→ ${escapeHtml(data.answer || '')}</span>`);
+					} else {
+						parts.unshift(`<div class="chip red">连接失败：${escapeHtml(data.error || '未知错误')}</div>`);
+					}
+					box.innerHTML = parts.join('');
+				} catch (error) {
+					box.innerHTML = `<div class="chip red">${escapeHtml(error.message)}</div>`;
+				}
+			});
+
+			// ---------------------------------------------------------------- 接入说明
+			function ocsConfigText() {
+				const origin = location.origin;
+				const config = [
+					{
+						name: 'DeepSeek 本地题库',
+						homepage: origin,
+						url: origin + '/api/answer',
+						method: 'post',
+						type: 'GM_xmlhttpRequest',
+						headers: { 'Content-Type': 'application/json' },
+						data: { title: '${title}', options: '${options}', type: '${type}' },
+						handler:
+							"return (res) => { if (!res || !res.answer) { throw new Error((res && res.msg) || '本地题库未返回答案'); } return [res.question, res.answer]; }"
+					}
+				];
+				return JSON.stringify(config, null, 2);
+			}
+			function renderGuide() {
+				$('#ocs-config-text').textContent = ocsConfigText();
+			}
+			$('#copy-config').addEventListener('click', () => copyText(ocsConfigText()));
+
+			// ---------------------------------------------------------------- 启动
+			(async function boot() {
+				renderGuide();
+				await refreshHealth();
+				await refreshStats();
+				await refreshRecent();
+				await loadConfig();
+				loadBank();
+				setInterval(() => {
+					if (state.tab === 'test') {
+						refreshHealth();
+						refreshStats();
+						refreshRecent();
+					}
+				}, 12000);
+			})();
+		</script>
+	</body>
+</html>

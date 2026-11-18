@@ -1,0 +1,19 @@
+# 本机配置：里面有 DeepSeek API Key，绝对不要提交
+config.json
+
+# 运行数据：本地题库、日志、访问记录
+data/
+*.log
+
+# 参考源码（ocsjs 源码包解压出来的，体积大且不是本项目代码）
+_ref/
+
+# 编辑器 / 系统临时文件
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+*.tmp
+.tmp-check-ui.mjs
+.ui-check.mjs

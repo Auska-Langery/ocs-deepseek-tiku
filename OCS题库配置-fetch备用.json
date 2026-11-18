@@ -1,0 +1,18 @@
+[
+  {
+    "name": "DeepSeek 本地题库（fetch 备用）",
+    "homepage": "http://127.0.0.1:8787/",
+    "url": "http://127.0.0.1:8787/api/answer",
+    "method": "post",
+    "type": "fetch",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "data": {
+      "title": "${title}",
+      "options": "${options}",
+      "type": "${type}"
+    },
+    "handler": "return (res) => { if (!res || !res.answer) { throw new Error((res && res.msg) || '本地题库未返回答案'); } return [res.question, res.answer]; }"
+  }
+]
