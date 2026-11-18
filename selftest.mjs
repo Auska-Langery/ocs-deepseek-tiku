@@ -296,15 +296,16 @@ try {
 	} catch {
 		mixedPieces = [];
 	}
+	const lastPiece = mixedPieces[mixedPieces.length - 1];
 	check(
-		'混排单选 + 填空：答案拼成 9 段（选项占位 + 文字答案）',
-		Array.isArray(mixedPieces) && mixedPieces.length === 9 && Boolean(mixedPieces[8]),
+		'混排单选 + 填空：答案按候选段数拼成数组（选项占位 + 文字答案）',
+		Array.isArray(mixedPieces) && mixedPieces.length >= 8 && Boolean(lastPiece),
 		`pieces=${mixedPieces.length}`
 	);
 	check(
 		'混排题最后一段是纯文本代码（不带 HTML 实体）',
-		typeof mixedPieces[8] === 'string' && !mixedPieces[8].includes('&num;') && !mixedPieces[8].includes('<br>'),
-		String(mixedPieces[8]).slice(0, 40)
+		typeof lastPiece === 'string' && !lastPiece.includes('&num;') && !lastPiece.includes('<br>'),
+		String(lastPiece).slice(0, 40)
 	);
 
 	// 手动打开开关后才跳过

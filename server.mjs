@@ -43,7 +43,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.6';
+const VERSION = '1.1.7';
 
 const STARTED_AT = Date.now();
 
@@ -141,7 +141,7 @@ function modelFromEntry(entry, options) {
 		const matched = matchOption(options, entry.text);
 		if (matched && !letters.includes(matched.letter)) letters.push(matched.letter);
 	}
-	const text = entry.text || (entry.type === 'completion' ? entry.answer : '');
+	const text = unwrapComposite(entry.text || (entry.type === 'completion' ? entry.answer : ''));
 	if (!letters.length && !text) return null;
 	return {
 		kind: entry.type,
@@ -151,6 +151,46 @@ function modelFromEntry(entry, options) {
 		note: entry.note ?? '',
 		parsed: true
 	};
+}
+
+/**
+ * 复合题答案段数的候选值。服务端看不到页面 DOM，只能按「一个选项算几个元素」轮换尝试：
+ *   选项数×2+1（字母和文字各占一个元素，最常见）→ 选项数+1（一个选项一个元素）
+ *   → 选项数+2（填空框同时命中 .textDIV 和 .eidtDiv）→ 选项数×2+2
+ * 同一道题每被问一次就换下一个；段数不匹配时 OCS 的 resolveCompletion 直接返回 false，
+ * 什么都不会做，所以多试几次没有副作用。
+ */
+const compositeSlotAttempts = new Map();
+
+function nextCompositeSlots(key, optionLetters) {
+	const candidates = [
+		optionLetters * 2 + 1,
+		optionLetters + 1,
+		optionLetters + 2,
+		optionLetters * 2 + 2
+	];
+	// 「选项数 + 1」已实测不成立（9 段时用户页面上一个字都没填），所以把它排到第二顺位。
+	const attempt = compositeSlotAttempts.get(key) || 0;
+	compositeSlotAttempts.set(key, (attempt + 1) % candidates.length);
+	if (compositeSlotAttempts.size > 5000) compositeSlotAttempts.clear();
+	return candidates[attempt % candidates.length];
+}
+
+/**
+ * 把历史缓存里「已经拼成 JSON 数组」的复合题答案还原成纯文本，
+ * 避免复用旧条目时再包一层数组（OCS 解析出来就是一堆 "[...]" 字符串）。
+ */
+function unwrapComposite(text) {
+	const raw = String(text ?? '').trim();
+	if (!raw.startsWith('[') || !raw.endsWith(']')) return text;
+	try {
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return text;
+		const meaningful = parsed.map((item) => String(item ?? '')).filter((item) => item && item !== '（略）');
+		return meaningful.length ? meaningful[meaningful.length - 1] : '';
+	} catch {
+		return text;
+	}
 }
 
 /**
@@ -181,7 +221,7 @@ function reuseEntry(entry, options, type, compositeSlots = 0) {
 	return formatted;
 }
 
-function buildResponse({ title, type, formatted, source, model, cached, ms, mock, focusPart = null, subQuestionCount = 0 }) {
+function buildResponse({ title, type, formatted, source, model, cached, ms, mock, focusPart = null, subQuestionCount = 0, slots = 0 }) {
 	return {
 		code: 1,
 		msg: cached ? '命中本地题库' : 'DeepSeek 生成',
@@ -201,6 +241,7 @@ function buildResponse({ title, type, formatted, source, model, cached, ms, mock
 		mock: Boolean(mock),
 		focusPart,
 		subQuestionCount,
+		slots,
 		ms
 	};
 }
@@ -311,12 +352,14 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 	const subQuestions =
 		options.length === 0 && (type === 'completion' || type === 'unknown') ? splitSubQuestions(titleText) : [];
 	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
-	// 复合题里还嵌着单选时，OCS 的 completion 分支要求答案段数 = 页面元素数（选项数 + 填空数），
-	// 段数不匹配就一个框都不填 —— 所以按题干里的选项字母数推算，拼成 JSON 数组。
-	const compositeSlots = focusPart ? countOptionLetters(subQuestions) + 1 : 0;
-
+	const optionLetters = focusPart ? countOptionLetters(subQuestions) : 0;
 
 	const key = focusPart ? questionKey(titleText, type) + '#p' + focusPart.n : questionKey(titleText, type);
+
+	// 复合题里还嵌着单选时，OCS 的 completion 分支要求「答案段数 === 页面元素数」，段数不对一个框都不填。
+	// 但页面元素数（一个选项算 1 个还是 2 个元素）在服务端看不到，于是按候选值轮换：
+	// 同一道题每被问一次就换下一个候选，总有一次能对上（对不上时 OCS 什么也不做，不会有副作用）。
+	const compositeSlots = optionLetters >= 2 ? nextCompositeSlots(key, optionLetters) : 0;
 
 	bank.counters.lookups++;
 
@@ -336,6 +379,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 				model: { model: exact.model, confidence: exact.confidence, note: exact.note },
 				cached: true,
 				focusPart: focusPart ? focusPart.n : null,
+			slots: compositeSlots,
 				subQuestionCount: subQuestions.length,
 				ms: Date.now() - started
 			});
@@ -377,6 +421,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 					model: { model: entry.model, confidence: entry.confidence, note: entry.note },
 					cached: true,
 					focusPart: focusPart ? focusPart.n : null,
+			slots: compositeSlots,
 					subQuestionCount: subQuestions.length,
 					ms: Date.now() - started
 				});
@@ -401,6 +446,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 			cached: false,
 			skipped: true,
 			focusPart: focusPart ? focusPart.n : null,
+			slots: compositeSlots,
 			subQuestionCount: subQuestions.length,
 			ms: Date.now() - started
 		};
@@ -425,6 +471,7 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		cached: false,
 		focusPart: focusPart ? focusPart.n : null,
 		subQuestionCount: subQuestions.length,
+		slots: compositeSlots,
 		ms: Date.now() - started,
 		mock: result.mock
 	});
@@ -584,6 +631,7 @@ async function handle(req, res) {
 				type: result.type,
 				title: truncate(result.question, 400),
 				answer: truncate(result.answer, 400),
+				slots: result.slots ?? null,
 				source: result.source,
 				ms: Date.now() - started,
 				model: result.model
