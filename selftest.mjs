@@ -130,6 +130,8 @@ check('模型主动 skip 时不产生答案', skipAnswer.answer === '' && skipAn
 check('识别「要求截图」的题目', needsManualWork('运行程序截图，截图需包含源代码和运行结果') === true);
 check('识别「画流程图」的题目', needsManualWork('请画出该算法的流程图') === true);
 check('普通单选题不会被误判', needsManualWork('在个人理想与社会理想的关系上，下列论述不正确的是（ ）') === false);
+check('说「贴源代码，不要截图」不算要截图', needsManualWork('贴源代码，不要截图。参考答案是截图。') === false);
+check('只是提到「参考答案是截图」不算要截图', needsManualWork('参考答案是截图，请参考。') === false);
 check('识别「如图」的图片题', looksLikeImageQuestion('如图所示的电路中，电流表读数是多少') === true);
 check('普通题目不会被当成图片题', looksLikeImageQuestion('下列说法正确的是（ ）') === false);
 
@@ -245,13 +247,35 @@ try {
 		JSON.stringify(manualSkip.data)
 	);
 	const imageSkip = await postJson('/api/answer', {
-		title: '如图所示的电路中，电流表的读数是多少？',
-		options: 'A. 1A\nB. 2A',
-		type: 'single'
+		title: '如图所示的电路中，电流表的读数是多少？请说明理由。',
+		type: 'completion'
 	});
-	check('带图的题目直接留空', imageSkip.data.answer === '' && imageSkip.data.skipped === true, JSON.stringify(imageSkip.data));
+	check('带图的主观题直接留空', imageSkip.data.answer === '' && imageSkip.data.skipped === true, JSON.stringify(imageSkip.data));
 	const bankAfterSkip = (await fetch(`${BASE}/api/stats`).then((response) => response.json())).entries ?? 0;
 	check('跳过的题目不写入题库', bankAfterSkip === bankBeforeSkip, `before=${bankBeforeSkip} after=${bankAfterSkip}`);
+
+	// 关键回归：题干里提到「截图」的选择题必须照常作答（不能整道大题被跳过）
+	const choiceWithShot = await postJson('/api/answer', {
+		title: '运行程序截图，截图需包含源代码和运行结果。定义字符数组，存储一个长度不多于10的字符串，则数组长度至少是',
+		options: 'A. 12\nB. 11\nC. 10\nD. 9',
+		type: 'single'
+	});
+	check(
+		'选择题题干提到截图也照常作答',
+		choiceWithShot.data.code === 1 && Boolean(choiceWithShot.data.answer) && choiceWithShot.data.skipped !== true,
+		JSON.stringify(choiceWithShot.data)
+	);
+
+	// 关键回归：明确说「贴源代码，不要截图」的主观题要正常给答案
+	const codeNotShot = await postJson('/api/answer', {
+		title: '运行程序截图，截图需包含源代码和运行结果。贴源代码，不要截图。参考答案是截图。',
+		type: 'completion'
+	});
+	check(
+		'说「不要截图 / 贴源代码」的主观题照常作答',
+		codeNotShot.data.code === 1 && codeNotShot.data.skipped !== true,
+		JSON.stringify(codeNotShot.data)
+	);
 
 	section('3. 题库接口');
 

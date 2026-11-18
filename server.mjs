@@ -40,7 +40,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 
 const STARTED_AT = Date.now();
 
@@ -229,15 +229,19 @@ async function computeWithDeepSeek({ title, type, options, rawType, hint, key })
 }
 
 /**
- * 一些题不该答：要交截图 / 要看图。
+ * 一些题不该答：主观题要交截图、或主观题必须看图。
+ * 只对「主观题（填空/简答/问答）」生效 —— 选择题、判断题即使题干里提到截图/图片也要正常作答，
+ * 否则会出现「一个大题下面几个小题全被跳过」的情况。
  * 返回留空的原因，返回空串表示正常作答。
  */
-function precheckSkip(titleText) {
+function precheckSkip(titleText, type) {
+	const subjective = type === 'completion' || type === 'unknown';
+	if (!subjective) return '';
 	if (config.skipManualWork !== false && needsManualWork(titleText)) {
-		return '该题需要截图/拍照/画图，已按要求留空';
+		return '该题要求交截图/图片，文字交不了，已按要求留空';
 	}
 	if (config.skipImageQuestions !== false && looksLikeImageQuestion(titleText)) {
-		return '该题含图片，模型看不到图，已跳过（可在管理台设置里关闭）';
+		return '该题含图片且没有文字作答条件，模型看不到图，已跳过（可在管理台设置里关闭）';
 	}
 	return '';
 }
@@ -253,8 +257,8 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 
 	const type = normalizeType(rawType);
 
-	// 0) 需要截图 / 带图的题目：直接留空，不花额度、不写题库
-	const skipReason = precheckSkip(titleText);
+	// 0) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
+	const skipReason = precheckSkip(titleText, type);
 	if (skipReason) {
 		return {
 			code: 0,

@@ -715,11 +715,11 @@
 					<div class="field" style="margin-top: 16px">答题策略</div>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-manual" style="width: 16px" />
-						<span>需要「截图 / 拍照 / 画图 / 上传图片」的题目留空不答</span>
+						<span>要求「截图 / 画图 / 上传图片」的<b>主观题</b>留空不答（选择题、判断题不受影响）</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-skip-image" style="width: 16px" />
-						<span>题干带图（“如图 / 下图”）的题目留空不答 —— 模型看不到图，硬答基本是错的</span>
+						<span>带图（“如图 / 下图”）且只能靠图作答的<b>主观题</b>留空不答</span>
 					</label>
 					<label class="row" style="gap: 8px; margin-bottom: 8px; align-items: center">
 						<input type="checkbox" id="cfg-html" style="width: 16px" />
@@ -831,9 +831,9 @@
 					<details>
 						<summary>为什么有些题直接空着不答？</summary>
 						<div class="hint" style="margin-top: 6px">
-							两类题会被主动跳过：① 题干要求「截图 / 拍照 / 画图 / 上传图片」——OCS 只能填文字，答了也没用；
-							② 题干里带图（“如图”“下图”“【图片】”）——模型看不到图，硬答基本是错的。
-							两者都在「设置 → 答题策略」里，可以单独关掉。被跳过的题不消耗 token、也不写进题库。
+							只会跳过<b>主观题</b>（简答 / 填空 / 问答）。选择题、判断题即使题干里提到截图或图片，也照常作答 —— 那种情况多半是整道大题的提交说明，小题本身还是要做的。
+							另外，题目明确说「贴源代码 / 不要截图 / 参考答案是截图」时不会被跳过，会正常给代码。
+							被跳过的题不消耗 token、也不写进题库。
 						</div>
 					</details>
 					<details>
