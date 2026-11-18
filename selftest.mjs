@@ -113,6 +113,16 @@ check(
 	codeAnswer.answer.slice(0, 40)
 );
 check('代码里的换行变成 <br>', codeAnswer.answer.includes('<br>'), codeAnswer.answer.slice(0, 60));
+const quotedAnswer = formatAnswer({
+	type: 'completion',
+	options: [],
+	model: { text: '#include <stdio.h>\nprintf("%d\\n", 42);\n' }
+});
+check(
+	'代码里的双引号/反斜杠转成实体，避免破坏 OCS 的 CSS 选择器',
+	!quotedAnswer.answer.includes('"') && !quotedAnswer.answer.includes('\\') && quotedAnswer.answer.includes('&quot;'),
+	quotedAnswer.answer.slice(0, 60)
+);
 
 const proseAnswer = formatAnswer({
 	type: 'completion',

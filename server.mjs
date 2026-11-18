@@ -42,7 +42,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.3';
+const VERSION = '1.1.4';
 
 const STARTED_AT = Date.now();
 
@@ -190,6 +190,21 @@ function buildResponse({ title, type, formatted, source, model, cached, ms, mock
 	};
 }
 
+/** 题干上限：超星复合题的题干能到上万字符（含所有小问和选项文本） */
+const MAX_TITLE_LENGTH = 20000;
+
+/**
+ * 题干清洗：
+ * - 超星会把 UEditor 的初始化脚本整段塞进标题里（`$(function(){…UE.getEditor…})`），砍掉；
+ * - 把一堆制表符/全角空格压成单个空格，避免白白撑爆长度限制。
+ */
+function sanitizeTitle(input) {
+	let text = String(input ?? '').replace(/\r\n?/g, '\n');
+	const scriptAt = text.search(/\$\(function\s*\(|window\.UEDITOR_CONFIG|UE\.getEditor\s*\(|var\s+editor\d*\s*=/);
+	if (scriptAt > 0) text = text.slice(0, scriptAt);
+	text = text.replace(/[\t\u00a0\u3000]+/g, ' ').replace(/ {2,}/g, ' ');
+	return text.replace(/\n{3,}/g, '\n\n').trim();
+}
 async function computeWithDeepSeek({ title, type, options, rawType, hint, key, focusPart }) {
 	bank.counters.aiCalls++;
 	let result;
@@ -259,9 +274,11 @@ function precheckSkip(titleText, type) {
  */
 async function answerQuestion({ title, options: rawOptions, type: rawType, hint }) {
 	const started = Date.now();
-	const titleText = String(title ?? '').replace(/\r\n?/g, '\n').trim();
+	const titleText = sanitizeTitle(String(title ?? ''));
 	if (!titleText) throw new HttpError(400, '缺少题目内容（title 为空）');
-	if (titleText.length > 4000) throw new HttpError(400, '题目过长（超过 4000 字）');
+	if (titleText.length > MAX_TITLE_LENGTH) {
+		throw new HttpError(400, '题目过长（超过 ' + MAX_TITLE_LENGTH + ' 字）');
+	}
 
 	let type = normalizeType(rawType);
 	const options = parseOptions(rawOptions);
@@ -272,7 +289,11 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 
 	// 复合题（一道大题下含 (1)(2)(3) 多个小问）：页面上的文字作答框只对应其中一个小问。
 	// OCS 只会往那个框里写一次答案，所以只回答该小问，别把 (1)C (2)A 拼进代码里。
-	const subQuestions = type === 'completion' || type === 'unknown' ? splitSubQuestions(titleText) : [];
+	// 注意：只有「没有选项」的主观题才拆小问。带选项的题必须按选项作答，
+	// 否则 OCS 会把这段文字拼进 span.saveSingleSelect[data="…"] 选择器，直接抛
+	// Failed to execute 'querySelector' on 'Element'。
+	const subQuestions =
+		options.length === 0 && (type === 'completion' || type === 'unknown') ? splitSubQuestions(titleText) : [];
 	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
 
 	// 0) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
