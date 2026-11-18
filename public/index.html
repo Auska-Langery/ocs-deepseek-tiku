@@ -698,8 +698,9 @@
 							<input type="number" id="cfg-temp" min="0" max="2" step="0.1" />
 						</div>
 						<div>
-							<label class="field" for="cfg-maxtokens">max_tokens</label>
-							<input type="number" id="cfg-maxtokens" min="64" max="8192" step="64" />
+							<label class="field" for="cfg-maxtokens">max_tokens（单次回答上限）</label>
+							<input type="number" id="cfg-maxtokens" min="512" max="8192" step="64" />
+							<p class="hint">代码类大题建议 4000 以上；输出被截断时会自动翻倍重试到 8192。</p>
 						</div>
 					</div>
 					<div class="form-row grid2">
@@ -1238,7 +1239,7 @@
 				$('#cfg-model').value = config.model || '';
 				$('#cfg-thinking').value = config.thinking || 'disabled';
 				$('#cfg-temp').value = config.temperature ?? 0;
-				$('#cfg-maxtokens').value = config.maxTokens ?? 1200;
+				$('#cfg-maxtokens').value = config.maxTokens ?? 4000;
 				$('#cfg-timeout').value = config.timeoutSeconds ?? 35;
 				$('#cfg-fallback').value = (config.fallbackModels || []).join(', ');
 				$('#cfg-token').value = config.token || '';

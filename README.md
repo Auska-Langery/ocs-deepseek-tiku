@@ -268,6 +268,12 @@ OCS 桌面版内置「脚本猫」扩展，它给脚本提供了 GM 接口（OCS
 **Q：图片题 / 录音题**
 不做。往 OCS 传图片需要 POST 里引用 `${images}`，DeepSeek 也没有视觉能力。
 
+**Q：提示「DeepSeek 输出被截断（达到 max_tokens）」**
+代码类大题太长，模型一次写不完。1.1.2 起会自动把上限翻倍重试（4000 → 8000，最多 8192），
+大多数题能一次过；还把配置里的 `maxTokens` 调大即可（管理台「设置 → max_tokens」）。
+如果题目特别长（比如“成绩管理系统完整代码，含五个功能”），可能要等 60 秒以上，
+而 OCS 单题只等 60 秒 —— 这种题建议手动做。
+
 **Q：OCS 是 https 页面，请求 `http://127.0.0.1` 会被拦吗？**
 用 `fetch` 会被拦（面板显示 `TypeError: Failed to fetch`），所以默认配置改用 `GM_xmlhttpRequest`：请求由脚本猫扩展后台代发，不经过页面，
 既不受跨域限制，也不受混合内容限制。服务端本身也回好了 CORS 预检（含 `Access-Control-Allow-Private-Network: true`），两种方式都能跑。
@@ -352,6 +358,7 @@ node server.mjs --help
 - 启动时自动清理历史脏数据：`unknown` 题型留下的劣质答案、空答案（如 `#`）、1.0 版本生成的“没有换行”的旧代码缓存
 - 默认模型改为 `deepseek-flash`（`deepseek-chat` 已从 DeepSeek 接口下线），`deepseek-v4-pro` 作回退；管理台里可以随时改
 - 新增「编程题默认语言」（默认 C）：题目没写语言时不再答成 C++ / Python
+- `max_tokens` 默认值提到 4000；被截断时自动翻倍重试到 8192，不再直接报错
 - 自检扩充到 60 项
 
 `1.1.1`——
