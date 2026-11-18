@@ -42,7 +42,7 @@ const DATA_DIR = process.env.OCS_TIKU_DATA_DIR
 	: path.join(ROOT, 'data');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const VERSION = '1.1.4';
+const VERSION = '1.1.5';
 
 const STARTED_AT = Date.now();
 
@@ -296,27 +296,6 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		options.length === 0 && (type === 'completion' || type === 'unknown') ? splitSubQuestions(titleText) : [];
 	const focusPart = subQuestions.length >= 2 ? pickTextBoxPart(subQuestions) : null;
 
-	// 0) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
-	const skipReason = precheckSkip(focusPart ? focusPart.text : titleText, type);
-	if (skipReason) {
-		return {
-			code: 0,
-			msg: skipReason,
-			question: titleText,
-			answer: '',
-			type,
-			typeLabel: typeLabel(type),
-			letters: [],
-			picked: [],
-			mode: 'skip',
-			source: 'skipped',
-			cached: false,
-			skipped: true,
-			focusPart: focusPart ? focusPart.n : null,
-			subQuestionCount: subQuestions.length,
-			ms: Date.now() - started
-		};
-	}
 
 	const key = focusPart ? questionKey(titleText, type) + '#p' + focusPart.n : questionKey(titleText, type);
 
@@ -386,6 +365,27 @@ async function answerQuestion({ title, options: rawOptions, type: rawType, hint 
 		}
 	}
 
+	// 3) 主观题且必须交截图 / 必须看图的：直接留空，不花额度、不写题库
+	const skipReason = precheckSkip(focusPart ? focusPart.text : titleText, type);
+	if (skipReason) {
+		return {
+			code: 0,
+			msg: skipReason,
+			question: titleText,
+			answer: '',
+			type,
+			typeLabel: typeLabel(type),
+			letters: [],
+			picked: [],
+			mode: 'skip',
+			source: 'skipped',
+			cached: false,
+			skipped: true,
+			focusPart: focusPart ? focusPart.n : null,
+			subQuestionCount: subQuestions.length,
+			ms: Date.now() - started
+		};
+	}
 	// 3) 调用 DeepSeek（同题并发合并）
 	bank.counters.misses++;
 	const existing = inflight.get(key);

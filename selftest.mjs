@@ -137,7 +137,8 @@ check('多空填空仍保留 # 分隔符', blanksAnswer.answer === '80#443' && b
 const skipAnswer = formatAnswer({ type: 'completion', options: [], model: { kind: 'skip', note: '需要截图' } });
 check('模型主动 skip 时不产生答案', skipAnswer.answer === '' && skipAnswer.mode === 'skip', JSON.stringify(skipAnswer));
 
-check('识别「要求截图」的题目', needsManualWork('运行程序截图，截图需包含源代码和运行结果') === true);
+check('识别「要求截图」的题目', needsManualWork('请把实验报告手写拍照上传。') === true);
+check('编程题即使要求截图也照常作答', needsManualWork('编写函数fun3求多项式的值。运行程序并截图，截图需包含源代码和运行结果。') === false);
 check('识别「画流程图」的题目', needsManualWork('请画出该算法的流程图') === true);
 check('普通单选题不会被误判', needsManualWork('在个人理想与社会理想的关系上，下列论述不正确的是（ ）') === false);
 check('说「贴源代码，不要截图」不算要截图', needsManualWork('贴源代码，不要截图。参考答案是截图。') === false);
@@ -253,7 +254,7 @@ try {
 	check('空题干返回错误但 HTTP 仍是 200', missing.status === 200 && missing.data.code === 0, JSON.stringify(missing.data));
 
 	// 默认就跳过「整题只能交截图」的主观题（只跳过这一道，不牵连同大题的其他小问）
-	const defaultSkip = await postJson('/api/answer', { title: '运行程序截图，截图需包含源代码和运行结果。', type: 'completion' });
+	const defaultSkip = await postJson('/api/answer', { title: '请把实验报告手写拍照上传。', type: 'completion' });
 	check('默认跳过只能交截图的题目', defaultSkip.data.skipped === true && defaultSkip.data.answer === '', JSON.stringify(defaultSkip.data));
 
 	// 复合题：一道大题下 (1) 选择 (2) 判断 (3) 贴代码，只答文字框对应的第 3 小问
@@ -285,7 +286,7 @@ try {
 
 	const bankBeforeSkip = (await fetch(`${BASE}/api/stats`).then((response) => response.json())).entries ?? 0;
 	const manualSkip = await postJson('/api/answer', {
-		title: '运行程序截图，截图需包含源代码和运行结果。',
+		title: '请把实验报告手写拍照上传。',
 		type: 'completion'
 	});
 	check(
